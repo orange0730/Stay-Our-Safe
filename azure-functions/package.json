@@ -1,0 +1,24 @@
+{
+  "name": "stay-our-safe-azure-functions",
+  "version": "1.0.0",
+  "description": "Azure Functions for disaster data collection and AI analysis",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "prestart": "npm run build",
+    "start": "func start",
+    "test": "echo \"No tests yet...\""
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.0.0",
+    "@azure/functions": "^4.0.0",
+    "axios": "^1.6.2",
+    "openai": "^4.20.1",
+    "@azure/openai": "1.0.0-beta.12"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "typescript": "^5.0.0"
+  },
+  "main": "dist/src/functions/*.js"
+} 

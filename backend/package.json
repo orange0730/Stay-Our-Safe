@@ -1,0 +1,47 @@
+{
+  "name": "stay-our-safe-backend",
+  "version": "1.0.0",
+  "description": "災害防護助手後端服務",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "nodemon --exec ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "jest",
+    "build-deploy": "rimraf deploy && npm run build-deploy:create",
+    "build-deploy:create": "node scripts/create-deploy.js",
+    "create-zip": "node scripts/create-zip.js",
+    "create-zip:ps": "powershell -ExecutionPolicy Bypass -File scripts/create-deploy-zip.ps1",
+    "build:production": "npm ci --production && npm run build"
+  },
+  "dependencies": {
+    "@azure/cosmos": "^4.4.1",
+    "@azure/openai": "^2.0.0",
+    "axios": "^1.6.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "node-cron": "^3.0.3",
+    "openai": "^4.20.1",
+    "uuid": "^9.0.1",
+    "winston": "^3.11.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/jest": "^29.5.11",
+    "@types/node": "^20.10.4",
+    "@types/node-cron": "^3.0.11",
+    "@types/uuid": "^9.0.7",
+    "jest": "^29.7.0",
+    "nodemon": "^3.0.2",
+    "rimraf": "^6.0.1",
+    "ts-jest": "^29.1.1",
+    "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}

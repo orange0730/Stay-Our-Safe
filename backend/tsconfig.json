@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "lib": ["ES2022"],
+    "outDir": "./dist",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@shared/*": ["../shared/*"],
+      "@modules/*": ["./src/modules/*"],
+      "@services/*": ["./src/services/*"],
+      "@routes/*": ["./src/routes/*"],
+      "@types/*": ["./src/types/*"]
+    },
+    "typeRoots": ["./node_modules/@types", "./src/types"],
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true
+  },
+  "ts-node": {
+    "require": ["tsconfig-paths/register"]
+  },
+  "include": ["src/**/*", "../shared/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+} 

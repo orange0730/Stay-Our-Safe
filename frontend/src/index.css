@@ -1,0 +1,95 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Leaflet 地圖容器修正 */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  z-index: 1;
+}
+
+/* 自訂滾動條樣式 */
+@layer utilities {
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #555;
+  }
+}
+
+/* 動畫類別 */
+@layer utilities {
+  .animate-fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+}
+
+/* 風險等級顏色 */
+.risk-level-1 {
+  background-color: rgba(34, 197, 94, 0.2);
+  border-color: rgb(34, 197, 94);
+}
+
+.risk-level-2 {
+  background-color: rgba(250, 204, 21, 0.2);
+  border-color: rgb(250, 204, 21);
+}
+
+.risk-level-3 {
+  background-color: rgba(249, 115, 22, 0.2);
+  border-color: rgb(249, 115, 22);
+}
+
+.risk-level-4 {
+  background-color: rgba(239, 68, 68, 0.2);
+  border-color: rgb(239, 68, 68);
+}
+
+/* Leaflet 地圖必需的樣式 */
+.leaflet-container {
+  height: 100%;
+  width: 100%;
+  position: relative;
+}
+
+/* 修正 Leaflet 控制元件的 z-index 問題 */
+.leaflet-top,
+.leaflet-bottom {
+  z-index: 999;
+}
+
+/* 確保地圖填滿容器 */
+.leaflet-map-pane {
+  z-index: 1;
+}
+
+/* 修正標記圖標問題 */
+.leaflet-marker-icon {
+  background: none;
+  border: none;
+} 

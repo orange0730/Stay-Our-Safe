@@ -1,0 +1,14 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "COSMOS_CONNECTION_STRING": "your_cosmos_connection_string_here",
+    "CWA_API_KEY": "your_cwa_api_key_here",
+    "WRA_API_KEY": "your_wra_api_key_here",
+    "GEO_TOKEN": "your_geo_token_here",
+    "OPENAI_ENDPOINT": "https://your-region.api.cognitive.microsoft.com/",
+    "OPENAI_API_KEY": "your_openai_api_key_here",
+    "OPENAI_DEPLOYMENT_NAME": "your_deployment_name_here"
+  }
+} 

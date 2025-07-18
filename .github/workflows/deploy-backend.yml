@@ -1,0 +1,50 @@
+name: Deploy Backend to Azure App Service
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend/**'
+      - 'shared/**'
+      - '.github/workflows/deploy-backend.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci --production
+
+    - name: Build application
+      run: |
+        cd backend
+        npm run build
+
+    - name: Create deployment artifact
+      run: |
+        cd backend
+        mkdir deploy-artifact
+        cp -r dist/ deploy-artifact/
+        cp package*.json deploy-artifact/
+        cp -r node_modules/ deploy-artifact/
+
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'Stay-Our-Safe'  # 替換為您的 Azure App Service 名稱
+        slot-name: 'production'
+        publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+        package: backend/deploy-artifact 

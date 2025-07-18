@@ -1,0 +1,46 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+**/local.settings.json
+!**/local.settings.json.example
+
+# Build output
+dist/
+build/
+**/dist/
+**/build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+**/logs/
+
+# Azure
+*.azurite
+__azurite_db_*.json
+__blobstorage__/
+__queuestorage__/
+AzuriteConfig
+
+# Deployment packages
+*.zip
+deploy/
+publish/
+
+# Temporary files
+*.tmp
+*.temp 
