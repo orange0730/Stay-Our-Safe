@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "scripts": {
     "dev": "nodemon --exec ts-node src/index.ts",
-    "build": "tsc",
+    "build": "if [ -d \"node_modules/typescript\" ]; then tsc; else echo \"TypeScript not found, skipping build (dist already exists)\"; fi",
+    "build:force": "tsc",
     "start": "node dist/index.js",
     "test": "jest",
     "build-deploy": "rimraf deploy && npm run build-deploy:create",

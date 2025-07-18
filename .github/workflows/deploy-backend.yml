@@ -46,6 +46,9 @@ jobs:
         cp -r dist/ deploy-artifact/
         cp package*.json deploy-artifact/
         cp -r node_modules/ deploy-artifact/
+        # Create .deployment file to disable SCM build
+        echo "[config]" > deploy-artifact/.deployment
+        echo "SCM_DO_BUILD_DURING_DEPLOYMENT=false" >> deploy-artifact/.deployment
 
     - name: Azure Login
       uses: azure/login@v1
