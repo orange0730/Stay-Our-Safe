@@ -62,10 +62,9 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Clean and Deploy to Azure Web App
+    - name: Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: 'Stay-Our-Safe'
         slot-name: 'production'
-        package: backend/deploy-artifact
-        clean: true 
+        package: backend/deploy-artifact 

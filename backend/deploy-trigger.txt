@@ -1,1 +1,1 @@
-Deploy trigger - 2025-07-18 20:30 - Deploy to brand new App Service: https://stay-our-safe.azurewebsites.net/ 
+Deploy trigger - 2025-07-18 20:35 - Fixed GitHub Actions: removed unsupported 'clean' parameter 
