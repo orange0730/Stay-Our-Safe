@@ -56,7 +56,39 @@ export function useDataFetch() {
     {
       refetchInterval: 10 * 60 * 1000, // 每 10 分鐘自動更新
       onSuccess: (data) => {
-        setRiskAssessment(data);
+        // 確保數據結構完整性
+        if (data && data.affectedAreas && Array.isArray(data.affectedAreas)) {
+          setRiskAssessment(data);
+        } else {
+          console.warn('Invalid risk assessment data received:', data);
+          // 設置預設的風險評估數據
+          setRiskAssessment({
+            id: 'default',
+            generatedAt: new Date().toISOString(),
+            location: { lat: 25.0330, lng: 121.5654 },
+            radius: 5000,
+            overallRisk: 1,
+            riskAreas: [],
+            affectedAreas: [],
+            recommendations: ['系統正在載入風險資料...'],
+            nearbyHazards: []
+          });
+        }
+      },
+      onError: (error) => {
+        console.warn('Failed to fetch risk assessment:', error);
+        // 提供預設的風險評估數據
+        setRiskAssessment({
+          id: 'fallback',
+          generatedAt: new Date().toISOString(),
+          location: { lat: 25.0330, lng: 121.5654 },
+          radius: 5000,
+          overallRisk: 1,
+          riskAreas: [],
+          affectedAreas: [],
+          recommendations: ['暫時無法取得風險評估資料'],
+          nearbyHazards: []
+        });
       },
       retry: 1,
     }

@@ -39,7 +39,7 @@ function App() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [riskData, setRiskData] = useState<RiskData | null>(null);
-  const [useAzureMap, setUseAzureMap] = useState(true); // 切換地圖的開關
+  const [useAzureMap, setUseAzureMap] = useState(false); // 預設使用 Leaflet 地圖，因為 Azure Maps key 可能缺失
   const [showAdmin, setShowAdmin] = useState(false);
   const [showDisasterDashboard, setShowDisasterDashboard] = useState(false);
   const [showNavigation, setShowNavigation] = useState(false);

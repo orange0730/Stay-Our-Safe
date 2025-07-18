@@ -107,9 +107,60 @@ app.get('/api/risks/assessment', (req, res) => {
   res.json({
     success: true,
     data: {
-      riskLevel: 'low',
-      assessment: '目前風險等級較低',
-      recommendations: ['保持警覺', '注意最新災害資訊']
+      id: `assessment_${Date.now()}`,
+      generatedAt: new Date().toISOString(),
+      location: { lat: 25.0330, lng: 121.5654 },
+      radius: 5000,
+      overallRisk: 2,
+      riskAreas: [
+        {
+          id: 'area_1',
+          center: { lat: 25.0340, lng: 121.5664 },
+          radius: 800,
+          riskLevel: 2,
+          hazardTypes: ['flood'],
+          description: '積水風險區域'
+        }
+      ],
+      affectedAreas: [
+        {
+          id: 'affected_1',
+          polygon: [
+            { lat: 25.0320, lng: 121.5640 },
+            { lat: 25.0350, lng: 121.5640 },
+            { lat: 25.0350, lng: 121.5680 },
+            { lat: 25.0320, lng: 121.5680 }
+          ],
+          riskLevel: 2,
+          hazards: [
+            {
+              id: '1',
+              type: 'flood',
+              severity: 2,
+              location: { lat: 25.0335, lng: 121.5660 },
+              description: '道路積水',
+              source: 'government',
+              reportedAt: new Date().toISOString()
+            }
+          ]
+        }
+      ],
+      recommendations: [
+        '避開積水區域',
+        '選擇替代路線',
+        '注意天氣變化'
+      ],
+      nearbyHazards: [
+        {
+          id: '1',
+          type: 'flood',
+          severity: 2,
+          location: { lat: 25.0335, lng: 121.5660 },
+          description: '道路積水',
+          source: 'government',
+          reportedAt: new Date().toISOString()
+        }
+      ]
     },
     timestamp: new Date().toISOString()
   });

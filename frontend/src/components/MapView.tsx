@@ -145,7 +145,10 @@ export function MapView() {
   };
 
   // 過濾要顯示的災害
-  const filteredHazards = hazards.filter(hazard => {
+  const filteredHazards = (hazards || []).filter(hazard => {
+    // 確保 hazard 物件存在且有必要的屬性
+    if (!hazard || !hazard.type) return false;
+    
     // 如果正在導航，且選擇了要避開的災害類型
     if (navigation.isActive && routePlanning.avoidHazardTypes.length > 0) {
       return !routePlanning.avoidHazardTypes.includes(hazard.type);
@@ -182,7 +185,7 @@ export function MapView() {
         )}
 
         {/* 危險熱區 */}
-        {mapViewState.showHeatmap && riskAssessment?.affectedAreas.map((area) => (
+        {mapViewState.showHeatmap && riskAssessment?.affectedAreas?.map((area) => (
           <Polygon
             key={area.id}
             positions={area.polygon.map((p) => [p.lat, p.lng])}
@@ -197,11 +200,11 @@ export function MapView() {
               <div className="p-2">
                 <h3 className="font-semibold mb-2">風險區域</h3>
                 <p>風險等級：{area.riskLevel}/4</p>
-                <p>災害數量：{area.hazards.length}</p>
+                <p>災害數量：{area.hazards?.length || 0}</p>
               </div>
             </Popup>
           </Polygon>
-        ))}
+        )) || null}
 
         {/* 災害標記 */}
         {filteredHazards.map((hazard) => (

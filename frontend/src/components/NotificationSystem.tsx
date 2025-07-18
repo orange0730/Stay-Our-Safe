@@ -13,13 +13,13 @@ export function NotificationSystem() {
 
   useEffect(() => {
     // 如果未啟用通知或無相關資料，直接返回
-    if (!appSettings.notificationEnabled || !userLocation || !riskAssessment) {
+    if (!appSettings.notificationEnabled || !userLocation || !riskAssessment || !riskAssessment.affectedAreas) {
       return;
     }
 
     // 檢查使用者是否在高風險區域內
     const dangerousAreas = riskAssessment.affectedAreas.filter(
-      (area) => area.riskLevel >= SeverityLevel.HIGH
+      (area) => area && area.riskLevel >= SeverityLevel.HIGH
     );
 
     for (const area of dangerousAreas) {

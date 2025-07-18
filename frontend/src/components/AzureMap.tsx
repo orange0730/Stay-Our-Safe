@@ -29,7 +29,19 @@ export function AzureMap({
     // 從環境變數取得 Azure Maps Key
     const azureKey = import.meta.env.VITE_AZURE_MAPS_KEY;
     if (!azureKey) {
-      console.error('Azure Maps key is missing. Please set VITE_AZURE_MAPS_KEY in your .env file');
+      console.warn('Azure Maps key is missing. Please set VITE_AZURE_MAPS_KEY in your .env file');
+      // 顯示友善的錯誤訊息而不是讓元件崩潰
+      if (mapRef.current) {
+        mapRef.current.innerHTML = `
+          <div class="flex items-center justify-center h-full bg-gray-100 text-gray-600">
+            <div class="text-center p-8">
+              <div class="mb-4">🗺️</div>
+              <h3 class="text-lg font-semibold mb-2">Azure Maps 暫時無法使用</h3>
+              <p class="text-sm">請使用 Leaflet 地圖或聯繫系統管理員</p>
+            </div>
+          </div>
+        `;
+      }
       return;
     }
 
