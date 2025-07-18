@@ -51,7 +51,7 @@ jobs:
         # Create startup script
         echo "#!/bin/bash" > deploy-artifact/startup.sh
         echo "cd /home/site/wwwroot" >> deploy-artifact/startup.sh
-        echo "node dist/index.js" >> deploy-artifact/startup.sh
+        echo "node dist/simple-server.js" >> deploy-artifact/startup.sh
         chmod +x deploy-artifact/startup.sh
         # Disable Azure build
         echo "[config]" > deploy-artifact/.deployment
