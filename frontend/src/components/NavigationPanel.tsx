@@ -46,9 +46,21 @@ export function NavigationPanel() {
 
   // 地址搜索
   const searchAddress = async (query: string, isStart: boolean) => {
+    // 先更新顯示的地址
+    if (isStart) {
+      setStartAddress(query);
+    } else {
+      setEndAddress(query);
+    }
+
     if (query.length < 2) {
-      if (isStart) setStartSuggestions([]);
-      else setEndSuggestions([]);
+      if (isStart) {
+        setStartSuggestions([]);
+        setShowStartSuggestions(false);
+      } else {
+        setEndSuggestions([]);
+        setShowEndSuggestions(false);
+      }
       return;
     }
 
@@ -71,6 +83,40 @@ export function NavigationPanel() {
       if (isStart) setIsSearchingStart(false);
       else setIsSearchingEnd(false);
     }
+  };
+
+  // 延遲搜索，避免過於頻繁的 API 呼叫
+  const [searchTimeout, setSearchTimeout] = useState<number | null>(null);
+  
+  const handleAddressChange = (value: string, isStart: boolean) => {
+    // 立即更新輸入框顯示
+    if (isStart) {
+      setStartAddress(value);
+    } else {
+      setEndAddress(value);
+    }
+
+    // 清除之前的搜索計時器
+    if (searchTimeout) {
+      clearTimeout(searchTimeout);
+    }
+
+    // 設置新的搜索計時器
+    const newTimeout = setTimeout(() => {
+      if (value.length >= 2) {
+        searchAddress(value, isStart);
+      } else {
+        if (isStart) {
+          setStartSuggestions([]);
+          setShowStartSuggestions(false);
+        } else {
+          setEndSuggestions([]);
+          setShowEndSuggestions(false);
+        }
+      }
+    }, 300); // 300ms 延遲搜索
+
+    setSearchTimeout(newTimeout);
   };
 
   // 選擇地址建議
@@ -200,8 +246,8 @@ export function NavigationPanel() {
             <input
               type="text"
               value={startAddress}
-              onChange={(e) => searchAddress(e.target.value, true)}
-              onFocus={() => searchAddress(startAddress, true)}
+              onChange={(e) => handleAddressChange(e.target.value, true)}
+              onFocus={() => handleAddressChange(startAddress, true)}
               onBlur={() => setTimeout(() => setShowStartSuggestions(false), 100)}
               placeholder="輸入地址或在地圖上選擇"
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -247,8 +293,8 @@ export function NavigationPanel() {
             <input
               type="text"
               value={endAddress}
-              onChange={(e) => searchAddress(e.target.value, false)}
-              onFocus={() => searchAddress(endAddress, false)}
+              onChange={(e) => handleAddressChange(e.target.value, false)}
+              onFocus={() => handleAddressChange(endAddress, false)}
               onBlur={() => setTimeout(() => setShowEndSuggestions(false), 100)}
               placeholder="輸入地址或在地圖上選擇"
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

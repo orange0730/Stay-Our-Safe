@@ -1,0 +1,66 @@
+name: Deploy New Backend to Azure App Service
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'backend-new/**'
+      - '.github/workflows/deploy-new-backend.yml'
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+        cache-dependency-path: backend-new/package-lock.json
+
+    - name: Install dependencies
+      run: |
+        cd backend-new
+        npm ci
+
+    - name: Build application
+      run: |
+        cd backend-new
+        npm run build
+
+    - name: Create deployment artifact
+      run: |
+        cd backend-new
+        mkdir deploy-artifact
+        # Copy essential files
+        cp -r dist/ deploy-artifact/
+        cp package.json deploy-artifact/
+        cp package-lock.json deploy-artifact/
+        cp web.config deploy-artifact/
+        # Install production dependencies
+        cd deploy-artifact
+        npm ci --production
+        # Create startup script
+        echo "#!/bin/bash" > startup.sh
+        echo "cd /home/site/wwwroot" >> startup.sh
+        echo "node dist/index.js" >> startup.sh
+        chmod +x startup.sh
+        # Disable Azure build
+        echo "[config]" > .deployment
+        echo "SCM_DO_BUILD_DURING_DEPLOYMENT=false" >> .deployment
+
+    - name: Azure Login
+      uses: azure/login@v1
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Deploy to Azure Web App
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: 'Stay-Our-Safe-backend'
+        slot-name: 'production'
+        package: backend-new/deploy-artifact 
