@@ -12,7 +12,7 @@ import toast from 'react-hot-toast';
 
 // 建立 axios 實例
 const api = axios.create({
-  baseURL: import.meta.env.PROD ? 'https://stay-our-safe-e2g2heb5g9gvgadm.eastasia-01.azurewebsites.net/api' : '/api',
+  baseURL: import.meta.env.PROD ? 'https://stay-our-safe.azurewebsites.net/api' : '/api',
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',

@@ -1,3 +1,1 @@
-Frontend deployment trigger
-Deployed: 2025-07-19 03:35:00
-Connected to backend: https://stay-our-safe-e2g2heb5g9gvgadm.eastasia-01.azurewebsites.net 
+Frontend deploy trigger - 2025-07-18 20:50 - Update API URL to new backend: stay-our-safe.azurewebsites.net 
