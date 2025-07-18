@@ -33,8 +33,10 @@ export function RecentAlerts() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Azure Functions 端點 - 使用 port 7072 避免衝突
-    const AZURE_FUNCTIONS_URL = 'http://localhost:7072';
+    // 使用新的後端 API
+    const API_BASE_URL = import.meta.env.PROD 
+        ? 'https://stay-our-safe-backend-gcgagbbhgdawd0da.canadacentral-01.azurewebsites.net/api' 
+        : '/api';
 
     useEffect(() => {
         fetchRecentAlerts();
@@ -45,8 +47,8 @@ export function RecentAlerts() {
 
     const fetchRecentAlerts = async () => {
         try {
-            // 使用 Azure Functions URL
-            const response = await fetch(`${AZURE_FUNCTIONS_URL}/api/alerts/recent`, {
+            // 使用新的後端 API
+            const response = await fetch(`${API_BASE_URL}/alerts/recent`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',

@@ -31,8 +31,12 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 獲取最近的警報資料（包含原始資料和 AI 分析）
-      const response = await fetch('http://localhost:7072/api/alerts/recent');
+      // 使用新的後端 API
+      const API_BASE_URL = import.meta.env.PROD 
+        ? 'https://stay-our-safe-backend-gcgagbbhgdawd0da.canadacentral-01.azurewebsites.net/api' 
+        : '/api';
+      
+      const response = await fetch(`${API_BASE_URL}/alerts/recent`);
       const data = await response.json();
       
       if (data.success) {

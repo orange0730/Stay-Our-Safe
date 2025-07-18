@@ -79,6 +79,82 @@ app.get('/health', (req, res) => {
 app.use('/api/map', mapRoutes);
 app.use('/api/hazards', hazardRoutes);
 
+// Alerts/Recent alerts endpoint
+app.get('/api/alerts/recent', (req, res) => {
+  logger.info('Recent alerts endpoint accessed');
+  
+  // 模擬最近的警報數據
+  const recentAlerts = [
+    {
+      id: `alert_${Date.now()}_1`,
+      type: 'flood',
+      severity: 'medium',
+      location: { lat: 25.0330, lng: 121.5654 },
+      description: '台北車站附近積水警報',
+      timestamp: new Date(Date.now() - 300000).toISOString(), // 5分鐘前
+      source: 'government',
+      status: 'active'
+    },
+    {
+      id: `alert_${Date.now()}_2`,
+      type: 'roadblock',
+      severity: 'high',
+      location: { lat: 25.0350, lng: 121.5684 },
+      description: '忠孝東路施工封閉',
+      timestamp: new Date(Date.now() - 900000).toISOString(), // 15分鐘前
+      source: 'traffic',
+      status: 'active'
+    },
+    {
+      id: `alert_${Date.now()}_3`,
+      type: 'fire',
+      severity: 'critical',
+      location: { lat: 25.0370, lng: 121.5714 },
+      description: '建築物火災警報',
+      timestamp: new Date(Date.now() - 1800000).toISOString(), // 30分鐘前
+      source: 'emergency',
+      status: 'resolved'
+    }
+  ];
+
+  // 模擬 AI 風險評估數據
+  const recentAssessments = [
+    {
+      id: `assessment_${Date.now()}_1`,
+      location: { lat: 25.0330, lng: 121.5654 },
+      overallRisk: 3,
+      riskFactors: ['flooding', 'traffic'],
+      recommendations: ['避開低窪地區', '選擇替代路線'],
+      confidence: 0.85,
+      timestamp: new Date().toISOString()
+    },
+    {
+      id: `assessment_${Date.now()}_2`,
+      location: { lat: 25.0350, lng: 121.5684 },
+      overallRisk: 2,
+      riskFactors: ['construction', 'traffic'],
+      recommendations: ['使用大眾運輸', '提前規劃路線'],
+      confidence: 0.92,
+      timestamp: new Date(Date.now() - 600000).toISOString() // 10分鐘前
+    }
+  ];
+
+  res.json({
+    success: true,
+    data: {
+      recentAlerts,
+      recentAssessments,
+      summary: {
+        totalAlerts: recentAlerts.length,
+        activeAlerts: recentAlerts.filter(a => a.status === 'active').length,
+        highSeverityAlerts: recentAlerts.filter(a => a.severity === 'high' || a.severity === 'critical').length,
+        avgRiskLevel: recentAssessments.reduce((sum, a) => sum + a.overallRisk, 0) / recentAssessments.length
+      }
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Reports routes (basic implementation)
 app.get('/api/reports', (req, res) => {
   logger.info('Reports endpoint accessed');
