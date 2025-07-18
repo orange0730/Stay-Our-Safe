@@ -23,15 +23,21 @@ jobs:
         cache: 'npm'
         cache-dependency-path: backend/package-lock.json
 
-    - name: Install dependencies
+    - name: Install all dependencies (including dev)
       run: |
         cd backend
-        npm ci --production
+        npm ci
 
     - name: Build application
       run: |
         cd backend
         npm run build
+
+    - name: Install production dependencies only
+      run: |
+        cd backend
+        rm -rf node_modules
+        npm ci --production
 
     - name: Create deployment artifact
       run: |
