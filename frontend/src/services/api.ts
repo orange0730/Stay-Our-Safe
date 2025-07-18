@@ -1,11 +1,12 @@
 import axios, { AxiosError } from 'axios';
-import { 
-  ApiResponse, 
-  HazardData, 
-  UserReport, 
-  RiskAssessment, 
-  RouteOptions, 
+import {
+  ApiResponse,
+  HazardData,
+  UserReport,
+  RiskAssessment,
+  RouteOptions,
   RouteResult,
+  RoutePlanningResult,
   HazardType
 } from '../types';
 import toast from 'react-hot-toast';
@@ -176,27 +177,56 @@ export const riskApi = {
   },
 };
 
-// 地圖與路線 API
+// 地圖和路線規劃 API
 export const mapApi = {
-  // 規劃路線
-  planRoute: async (options: RouteOptions): Promise<{
-    safestRoute?: RouteResult;
-    fastestRoute?: RouteResult;
-    balancedRoute?: RouteResult;
-    riskAreas: any[];
+  // 地址搜索（地理編碼）
+  searchAddress: async (address: string): Promise<{
+    results: Array<{
+      address: string;
+      location: { lat: number; lng: number };
+      confidence: number;
+    }>;
   }> => {
     try {
-      const { data } = await api.post<ApiResponse<{
-        safestRoute?: RouteResult;
-        fastestRoute?: RouteResult;
-        balancedRoute?: RouteResult;
-        riskAreas: any[];
-      }>>('/map/route', options);
-      return data.data!;
-    } catch (error) {
-      // 如果 API 失敗，返回模擬資料
-      console.log('使用模擬路線資料');
+      // 使用 OpenStreetMap Nominatim API
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(address)}&limit=5&countrycodes=tw`
+      );
+      const data = await response.json();
       
+      return {
+        results: data.map((item: any) => ({
+          address: item.display_name,
+          location: { lat: parseFloat(item.lat), lng: parseFloat(item.lon) },
+          confidence: parseFloat(item.importance) || 0.5
+        }))
+      };
+    } catch (error) {
+      console.error('Address search failed:', error);
+      return { results: [] };
+    }
+  },
+
+  // 反向地理編碼（坐標轉地址）
+  reverseGeocode: async (lat: number, lng: number): Promise<string> => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=zh-TW`
+      );
+      const data = await response.json();
+      return data.display_name || `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    } catch (error) {
+      console.error('Reverse geocoding failed:', error);
+      return `${lat.toFixed(4)}, ${lng.toFixed(4)}`;
+    }
+  },
+
+  // 路線規劃
+  planRoute: async (options: RouteOptions): Promise<RoutePlanningResult> => {
+    if (import.meta.env.DEV) {
+      // 開發環境使用模擬數據
+      await new Promise(resolve => setTimeout(resolve, 1000)); // 模擬 API 延遲
+
       // 生成模擬路線
       const generateRoute = (start: any, end: any) => {
         const points = [];
@@ -215,11 +245,11 @@ export const mapApi = {
       // 根據導航模式生成不同的指示
       const generateInstructions = (mode: string) => {
         const baseInstructions = [
-          '從當前位置出發',
-          '向北前進 200 公尺',
-          '在第一個路口右轉',
+          '從起點出發',
+          '向前直行 200 公尺',
+          '在路口右轉',
           '繼續前進 500 公尺',
-          '經過 7-11 後左轉',
+          '經過便利商店後左轉',
           '直行 300 公尺',
           '在紅綠燈處右轉',
           '繼續前進 400 公尺',
@@ -229,26 +259,30 @@ export const mapApi = {
 
         if (mode === 'safest') {
           return [
-            '從當前位置出發（避開災害區域）',
-            '向東前進 300 公尺（繞過積水區）',
-            '在巷口左轉（避開道路封閉）',
-            '沿著安全路線前進 600 公尺',
-            '經過避難所後右轉',
-            '繼續沿著標示的安全路線前進',
-            '在確認安全後通過路口',
+            '從起點出發（選擇安全路線）',
+            '向東繞行避開積水區域',
+            '在巷口左轉避開施工路段',
+            '沿著主要道路前進',
+            '經過警察局後右轉',
+            '繼續沿安全標示路線前進',
+            '確認安全後通過路口',
             '再前進 200 公尺',
-            '目的地在您的右側',
-            '您已安全到達目的地'
+            '安全到達目的地'
           ];
         }
         
         return baseInstructions;
       };
 
+      const distance = Math.sqrt(
+        Math.pow(options.end.lat - options.start.lat, 2) + 
+        Math.pow(options.end.lng - options.start.lng, 2)
+      ) * 111000; // 粗略計算距離
+
       return {
         safestRoute: {
-          distance: 2500,
-          duration: 900,
+          distance: Math.round(distance * 1.3), // 安全路線較長
+          duration: Math.round(distance * 1.3 / 5), // 假設步行速度 5m/s
           path: mockRoute,
           route: mockRoute,
           warnings: options.avoidHazardTypes?.length ? 
@@ -257,8 +291,8 @@ export const mapApi = {
           instructions: generateInstructions('safest')
         },
         fastestRoute: {
-          distance: 2000,
-          duration: 600,
+          distance: Math.round(distance),
+          duration: Math.round(distance / 6), // 較快速度
           path: mockRoute,
           route: mockRoute,
           warnings: ['此路線可能經過風險區域'],
@@ -266,8 +300,8 @@ export const mapApi = {
           instructions: generateInstructions('fastest')
         },
         balancedRoute: {
-          distance: 2200,
-          duration: 750,
+          distance: Math.round(distance * 1.15),
+          duration: Math.round(distance * 1.15 / 5.5),
           path: mockRoute,
           route: mockRoute,
           warnings: [],
@@ -276,6 +310,10 @@ export const mapApi = {
         },
         riskAreas: []
       };
+    } else {
+      // 生產環境可以連接真實的路線 API（如 OSRM、GraphHopper 等）
+      const { data } = await api.post<ApiResponse<RoutePlanningResult>>('/map/route', options);
+      return data.data!;
     }
   },
 

@@ -103,6 +103,14 @@ export interface RouteResult {
   instructions?: string[];
 }
 
+// 路線規劃結果（包含多個路線選項）
+export interface RoutePlanningResult {
+  safestRoute?: RouteResult;
+  fastestRoute?: RouteResult;
+  balancedRoute?: RouteResult;
+  riskAreas: any[];
+}
+
 // API 回應格式
 export interface ApiResponse<T> {
   success: boolean;
