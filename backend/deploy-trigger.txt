@@ -1,1 +1,1 @@
-Deploy trigger - 2025-07-18 20:15 - Force redeploy after App Service restart - simple-server.js should now exist 
+Deploy trigger - 2025-07-18 20:30 - Deploy to brand new App Service: https://stay-our-safe.azurewebsites.net/ 
