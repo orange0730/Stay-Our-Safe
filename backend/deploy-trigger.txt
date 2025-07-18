@@ -1,0 +1,1 @@
+Deploy trigger - 2025-07-18 20:05 - Added simple-server.js manually to fix MODULE_NOT_FOUND error 
