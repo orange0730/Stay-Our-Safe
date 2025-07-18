@@ -39,14 +39,21 @@ jobs:
         rm -rf node_modules
         npm ci --production
 
-    - name: Create deployment artifact
+    - name: Create clean deployment artifact
       run: |
         cd backend
         mkdir deploy-artifact
+        # Only copy essential files for Node.js app
         cp -r dist/ deploy-artifact/
-        cp package*.json deploy-artifact/
+        cp package.json deploy-artifact/
+        cp package-lock.json deploy-artifact/
         cp -r node_modules/ deploy-artifact/
-        # Create .deployment file to disable SCM build
+        # Create startup script
+        echo "#!/bin/bash" > deploy-artifact/startup.sh
+        echo "cd /home/site/wwwroot" >> deploy-artifact/startup.sh
+        echo "node dist/index.js" >> deploy-artifact/startup.sh
+        chmod +x deploy-artifact/startup.sh
+        # Disable Azure build
         echo "[config]" > deploy-artifact/.deployment
         echo "SCM_DO_BUILD_DURING_DEPLOYMENT=false" >> deploy-artifact/.deployment
 
@@ -55,9 +62,10 @@ jobs:
       with:
         creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-    - name: Deploy to Azure Web App
+    - name: Clean and Deploy to Azure Web App
       uses: azure/webapps-deploy@v2
       with:
         app-name: 'Stay-Our-Safe'
         slot-name: 'production'
-        package: backend/deploy-artifact 
+        package: backend/deploy-artifact
+        clean: true 
