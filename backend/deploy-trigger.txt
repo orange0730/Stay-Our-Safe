@@ -1,1 +1,1 @@
-Deploy trigger - 2025-07-18 20:35 - Fixed GitHub Actions: removed unsupported 'clean' parameter 
+Deploy trigger - 2025-07-18 20:45 - Minimal server: fixed encoding, CORS, explicit 0.0.0.0 binding 
