@@ -1,1 +1,1 @@
-Deploy trigger - 2025-07-18 20:45 - Minimal server: fixed encoding, CORS, explicit 0.0.0.0 binding 
+Deploy trigger - 2025-07-18 21:00 - CORS fix: explicit frontend domain, added API endpoints, detailed logging 
