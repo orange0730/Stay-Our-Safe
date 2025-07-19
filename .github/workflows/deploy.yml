@@ -1,38 +1,39 @@
-name: 🚀 Deploy Stay Our Safe
+name: Deploy Frontend and Backend
 
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
-  build-and-deploy-frontend:
+  deploy-frontend:
     runs-on: ubuntu-latest
     
     steps:
-    - name: 📥 Checkout code
-      uses: actions/checkout@v4
-      
-    - name: 📦 Setup Node.js
-      uses: actions/setup-node@v4
+    - name: Checkout code
+      uses: actions/checkout@v3
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
       with:
         node-version: '18'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
-        
-    - name: 🔧 Install frontend dependencies
+    
+    - name: Install frontend dependencies
       run: |
         cd frontend
         npm ci
-        
-    - name: 🏗️ Build frontend (skip TypeScript check)
+    
+    - name: Build frontend
       run: |
         cd frontend
         npm run build
-        
-    - name: 🌐 Deploy to Netlify
-      uses: nwtgck/actions-netlify@v3.0
+      env:
+        VITE_AZURE_MAPS_KEY: ${{ secrets.VITE_AZURE_MAPS_KEY }}
+        VITE_API_BASE_URL: ${{ secrets.VITE_API_BASE_URL }}
+    
+    - name: Deploy to Netlify
+      uses: nwtgck/actions-netlify@v2.0
       with:
         publish-dir: './frontend/dist'
         production-branch: main
@@ -44,41 +45,6 @@ jobs:
       env:
         NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
         NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
-      timeout-minutes: 1
 
-  # build-and-deploy-backend:
-  #   runs-on: ubuntu-latest
-  #   
-  #   steps:
-  #   - name: 📥 Checkout code
-  #     uses: actions/checkout@v4
-  #     
-  #   - name: 📦 Setup Node.js
-  #     uses: actions/setup-node@v4
-  #     with:
-  #       node-version: '18'
-  #       cache: 'npm'
-  #       cache-dependency-path: backend-new/package-lock.json
-  #       
-  #   - name: 🔧 Install backend dependencies
-  #     run: |
-  #       cd backend-new
-  #       npm ci
-  #       
-  #   - name: 🏗️ Build backend
-  #     run: |
-  #       cd backend-new
-  #       npm run build
-  #       
-  #   - name: 📦 Prepare deployment package
-  #     run: |
-  #       cd backend-new
-  #       cp package.json dist/
-  #       cp web.config dist/
-  #       
-  #   - name: 🚀 Deploy to Azure Web App
-  #     uses: azure/webapps-deploy@v3
-  #     with:
-  #       app-name: 'Stay-Our-Safe-backend'
-  #       publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
-  #       package: './backend-new/dist' 
+  # 移除後端部署 - 將使用 Azure 直接 Git 部署
+  # Azure Web App 會直接從 GitHub 拉取 backend/ 資料夾並自動部署 
