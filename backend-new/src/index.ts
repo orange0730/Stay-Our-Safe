@@ -5,6 +5,7 @@ import compression from 'compression';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import logger from './utils/logger';
+import autoCrawlService from './services/autoCrawlService';
 
 // Import routes
 import mapRoutes from './routes/mapRoutes';
@@ -79,80 +80,209 @@ app.get('/health', (req, res) => {
 app.use('/api/map', mapRoutes);
 app.use('/api/hazards', hazardRoutes);
 
-// Alerts/Recent alerts endpoint
+// Alerts/Recent alerts endpoint - 整合自動爬取的AI分析
 app.get('/api/alerts/recent', (req, res) => {
   logger.info('Recent alerts endpoint accessed');
   
-  // 模擬最近的警報數據
-  const recentAlerts = [
-    {
-      id: `alert_${Date.now()}_1`,
-      type: 'flood',
-      severity: 'medium',
-      location: { lat: 25.0330, lng: 121.5654 },
-      description: '台北車站附近積水警報',
-      timestamp: new Date(Date.now() - 300000).toISOString(), // 5分鐘前
-      source: 'government',
-      status: 'active'
-    },
-    {
-      id: `alert_${Date.now()}_2`,
-      type: 'roadblock',
-      severity: 'high',
-      location: { lat: 25.0350, lng: 121.5684 },
-      description: '忠孝東路施工封閉',
-      timestamp: new Date(Date.now() - 900000).toISOString(), // 15分鐘前
-      source: 'traffic',
-      status: 'active'
-    },
-    {
-      id: `alert_${Date.now()}_3`,
-      type: 'fire',
-      severity: 'critical',
-      location: { lat: 25.0370, lng: 121.5714 },
-      description: '建築物火災警報',
-      timestamp: new Date(Date.now() - 1800000).toISOString(), // 30分鐘前
-      source: 'emergency',
-      status: 'resolved'
-    }
-  ];
+  try {
+    // 獲取自動爬取的AI分析結果
+    const analysisHistory = autoCrawlService.getAnalysisHistory(10);
+    
+    // 將AI分析結果轉換為alerts格式
+    const recentAlerts = analysisHistory.flatMap(analysis => 
+      analysis.rawData.map(rawData => ({
+        id: `alert_${rawData.timestamp}_${rawData.type}`,
+        type: rawData.type,
+        severity: rawData.severity,
+        location: rawData.location,
+        description: rawData.description,
+        timestamp: rawData.timestamp,
+        source: rawData.source,
+        status: 'active',
+        aiAnalysisId: analysis.id
+      }))
+    ).slice(0, 20); // 最多20筆
 
-  // 模擬 AI 風險評估數據
-  const recentAssessments = [
-    {
-      id: `assessment_${Date.now()}_1`,
-      location: { lat: 25.0330, lng: 121.5654 },
-      overallRisk: 3,
-      riskFactors: ['flooding', 'traffic'],
-      recommendations: ['避開低窪地區', '選擇替代路線'],
-      confidence: 0.85,
+    // AI分析結果
+    const recentAssessments = analysisHistory.map(analysis => ({
+      id: analysis.id,
+      timestamp: analysis.timestamp,
+      overallRiskLevel: analysis.overallRiskLevel,
+      riskScore: analysis.riskScore,
+      summary: analysis.summary,
+      recommendations: analysis.recommendations,
+      dataSource: analysis.dataSource,
+      // 保持與現有格式兼容
+      location: analysis.dataSource.location,
+      overallRisk: analysis.riskScore,
+      riskFactors: analysis.dataSource.riskFactors,
+      confidence: analysis.dataSource.confidence
+    }));
+
+    // 如果沒有真實數據，提供模擬數據
+    if (recentAlerts.length === 0) {
+      logger.warn('No auto-crawl data available, using mock data');
+      
+      const mockRecentAlerts = [
+        {
+          id: `alert_${Date.now()}_1`,
+          type: 'flooding',
+          severity: 'medium',
+          location: { lat: 25.0330, lng: 121.5654, address: '台北市信義區' },
+          description: '自動爬取系統正在初始化，暫時顯示模擬數據',
+          timestamp: new Date(Date.now() - 300000).toISOString(),
+          source: 'system',
+          status: 'active'
+        }
+      ];
+      
+      const mockRecentAssessments = [
+        {
+          id: `assessment_${Date.now()}_1`,
+          timestamp: new Date().toISOString(),
+          overallRiskLevel: '系統啟動中',
+          riskScore: 1,
+          summary: '自動爬取和AI分析服務正在啟動中，請稍後刷新查看真實數據',
+          recommendations: ['系統正在初始化', '請稍後刷新頁面', '等待數據爬取完成'],
+          dataSource: {
+            location: { lat: 25.0330, lng: 121.5654 },
+            confidence: 0.5,
+            riskFactors: ['system_startup']
+          },
+          location: { lat: 25.0330, lng: 121.5654 },
+          overallRisk: 1,
+          riskFactors: ['system_startup'],
+          confidence: 0.5
+        }
+      ];
+
+      res.json({
+        success: true,
+        data: {
+          recentAlerts: mockRecentAlerts,
+          recentAssessments: mockRecentAssessments,
+          summary: {
+            totalAlerts: mockRecentAlerts.length,
+            activeAlerts: mockRecentAlerts.length,
+            highSeverityAlerts: 0,
+            avgRiskLevel: 1,
+            isRealData: false,
+            lastCrawl: null,
+            crawlStatus: autoCrawlService.getStatus()
+          }
+        },
+        timestamp: new Date().toISOString()
+      });
+      return;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        recentAlerts: recentAlerts,
+        recentAssessments: recentAssessments,
+        summary: {
+          totalAlerts: recentAlerts.length,
+          activeAlerts: recentAlerts.filter(a => a.status === 'active').length,
+          highSeverityAlerts: recentAlerts.filter(a => a.severity === 'high' || a.severity === 'critical').length,
+          avgRiskLevel: recentAssessments.reduce((sum, a) => sum + a.riskScore, 0) / recentAssessments.length,
+          isRealData: true,
+          lastCrawl: analysisHistory.length > 0 ? analysisHistory[0].timestamp : null,
+          crawlStatus: autoCrawlService.getStatus()
+        }
+      },
       timestamp: new Date().toISOString()
-    },
-    {
-      id: `assessment_${Date.now()}_2`,
-      location: { lat: 25.0350, lng: 121.5684 },
-      overallRisk: 2,
-      riskFactors: ['construction', 'traffic'],
-      recommendations: ['使用大眾運輸', '提前規劃路線'],
-      confidence: 0.92,
-      timestamp: new Date(Date.now() - 600000).toISOString() // 10分鐘前
-    }
-  ];
+    });
+    
+  } catch (error) {
+    logger.error('Error in alerts/recent endpoint:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
-  res.json({
-    success: true,
-    data: {
-      recentAlerts,
-      recentAssessments,
-      summary: {
-        totalAlerts: recentAlerts.length,
-        activeAlerts: recentAlerts.filter(a => a.status === 'active').length,
-        highSeverityAlerts: recentAlerts.filter(a => a.severity === 'high' || a.severity === 'critical').length,
-        avgRiskLevel: recentAssessments.reduce((sum, a) => sum + a.overallRisk, 0) / recentAssessments.length
-      }
-    },
-    timestamp: new Date().toISOString()
-  });
+// 自動爬取服務管理API
+app.get('/api/auto-crawl/status', (req, res) => {
+  logger.info('Auto-crawl status endpoint accessed');
+  try {
+    const status = autoCrawlService.getStatus();
+    res.json({
+      success: true,
+      data: status,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Error getting auto-crawl status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get status',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.post('/api/auto-crawl/start', (req, res) => {
+  logger.info('Auto-crawl start endpoint accessed');
+  try {
+    autoCrawlService.start();
+    res.json({
+      success: true,
+      message: '自動爬取服務已啟動',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Error starting auto-crawl:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to start service',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.post('/api/auto-crawl/stop', (req, res) => {
+  logger.info('Auto-crawl stop endpoint accessed');
+  try {
+    autoCrawlService.stop();
+    res.json({
+      success: true,
+      message: '自動爬取服務已停止',
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Error stopping auto-crawl:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to stop service',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
+
+app.get('/api/auto-crawl/history', (req, res) => {
+  logger.info('Auto-crawl history endpoint accessed');
+  try {
+    const limit = parseInt(req.query.limit as string) || 10;
+    const history = autoCrawlService.getAnalysisHistory(limit);
+    res.json({
+      success: true,
+      data: {
+        analyses: history,
+        count: history.length
+      },
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    logger.error('Error getting auto-crawl history:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get history',
+      timestamp: new Date().toISOString()
+    });
+  }
 });
 
 // Reports routes (basic implementation)
@@ -276,11 +406,18 @@ const server = app.listen(PORT, '0.0.0.0', () => {
   logger.info(`🌐 Environment: ${process.env.NODE_ENV || 'development'}`);
   logger.info(`🔐 CORS enabled for: ${corsOptions.origin.join(', ')}`);
   logger.info(`⚡ Ready to serve requests!`);
+  
+  // 啟動自動爬取服務
+  setTimeout(() => {
+    logger.info(`🤖 啟動自動爬取和AI分析服務...`);
+    autoCrawlService.start();
+  }, 3000); // 延遲3秒確保服務器完全啟動
 });
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
   logger.info('SIGTERM received, shutting down gracefully');
+  autoCrawlService.stop(); // 停止自動爬取服務
   server.close(() => {
     logger.info('Process terminated');
     process.exit(0);
@@ -289,6 +426,7 @@ process.on('SIGTERM', () => {
 
 process.on('SIGINT', () => {
   logger.info('SIGINT received, shutting down gracefully');
+  autoCrawlService.stop(); // 停止自動爬取服務
   server.close(() => {
     logger.info('Process terminated');
     process.exit(0);

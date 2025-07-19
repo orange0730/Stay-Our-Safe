@@ -1,166 +1,361 @@
 import React, { useEffect, useRef, useState } from 'react';
-// @ts-ignore
-import * as atlas from 'azure-maps-control';
-import 'azure-maps-control/dist/atlas.min.css';
+import { FiMap, FiLayers, FiAlertTriangle, FiEye, FiEyeOff } from 'react-icons/fi';
+import { HazardOverlay } from './HazardOverlay';
+
+declare global {
+  interface Window {
+    atlas: any;
+  }
+}
 
 interface AzureMapProps {
-  center?: [number, number];
-  zoom?: number;
-  safeRoute?: GeoJSON.LineString | null;
-  fastRoute?: GeoJSON.LineString | null;
+  routePath?: Array<{ lat: number; lng: number }>;
+  startLocation?: { lat: number; lng: number };
+  endLocation?: { lat: number; lng: number };
+  className?: string;
 }
 
 export function AzureMap({ 
-  center = [121.5654, 25.0330], // 台北市中心
-  zoom = 12,
-  safeRoute,
-  fastRoute 
+  routePath, 
+  startLocation, 
+  endLocation, 
+  className = '' 
 }: AzureMapProps) {
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<atlas.Map | null>(null);
-  const [showSafeRoute, setShowSafeRoute] = useState(true);
-  const safeLayerRef = useRef<atlas.layer.LineLayer | null>(null);
-  const fastLayerRef = useRef<atlas.layer.LineLayer | null>(null);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const [map, setMap] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showHazards, setShowHazards] = useState(true);
+  const [mapStyle, setMapStyle] = useState('road');
 
   // 初始化地圖
   useEffect(() => {
-    if (!mapRef.current) return;
+    if (!mapContainer.current) return;
 
-    // 從環境變數取得 Azure Maps Key
-    const azureKey = import.meta.env.VITE_AZURE_MAPS_KEY;
-    if (!azureKey) {
-      console.warn('Azure Maps key is missing. Please set VITE_AZURE_MAPS_KEY in your .env file');
-      // 顯示友善的錯誤訊息而不是讓元件崩潰
-      if (mapRef.current) {
-        mapRef.current.innerHTML = `
-          <div class="flex items-center justify-center h-full bg-gray-100 text-gray-600">
-            <div class="text-center p-8">
-              <div class="mb-4">🗺️</div>
-              <h3 class="text-lg font-semibold mb-2">Azure Maps 暫時無法使用</h3>
-              <p class="text-sm">請使用 Leaflet 地圖或聯繫系統管理員</p>
-            </div>
-          </div>
-        `;
+    const initializeMap = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        // 檢查 Azure Maps SDK 是否已載入
+        if (!window.atlas) {
+          // 動態載入 Azure Maps SDK
+          await loadAzureMapsSDK();
+        }
+
+        // 創建地圖實例
+        const newMap = new window.atlas.Map(mapContainer.current, {
+          center: [121.5654, 25.0330], // 台北101
+          zoom: 12,
+          style: 'road_shaded_relief',
+          language: 'zh-TW',
+          authOptions: {
+            authType: window.atlas.AuthenticationType.subscriptionKey,
+            subscriptionKey: 'demo-key' // 在實際部署時需要真實的key
+          }
+        });
+
+        // 等待地圖載入完成
+        newMap.events.add('ready', () => {
+          console.log('🗺️ Azure Maps 載入完成');
+          setMap(newMap);
+          setIsLoading(false);
+        });
+
+        newMap.events.add('error', (error: any) => {
+          console.error('❌ Azure Maps 載入錯誤:', error);
+          setError('地圖載入失敗，請檢查網路連線');
+          setIsLoading(false);
+        });
+
+      } catch (err) {
+        console.error('❌ 地圖初始化錯誤:', err);
+        setError('地圖初始化失敗');
+        setIsLoading(false);
       }
-      return;
-    }
+    };
 
-    // 建立地圖實例
-    const mapInstance = new atlas.Map(mapRef.current, {
-      center: center,
-      zoom: zoom,
-      language: 'zh-TW',
-      authOptions: {
-        authType: atlas.AuthenticationType.subscriptionKey,
-        subscriptionKey: azureKey
-      }
-    });
-
-    // 等待地圖載入完成
-    mapInstance.events.add('ready', () => {
-      // 建立資料來源
-      const safeDataSource = new atlas.source.DataSource('safe-route');
-      const fastDataSource = new atlas.source.DataSource('fast-route');
-      
-      mapInstance.sources.add(safeDataSource);
-      mapInstance.sources.add(fastDataSource);
-
-      // 建立安全路線圖層（綠色實線）
-      const safeLayer = new atlas.layer.LineLayer(safeDataSource, 'safe-route-layer', {
-        strokeColor: '#22c55e',
-        strokeWidth: 5,
-        strokeOpacity: 0.8
-      });
-
-      // 建立快速路線圖層（藍色虛線）
-      const fastLayer = new atlas.layer.LineLayer(fastDataSource, 'fast-route-layer', {
-        strokeColor: '#3b82f6',
-        strokeWidth: 5,
-        strokeOpacity: 0.8,
-        strokeDashArray: [5, 5],
-        visible: false // 初始隱藏
-      });
-
-      // 新增圖層到地圖
-      mapInstance.layers.add([safeLayer, fastLayer]);
-
-      // 儲存圖層參考
-      safeLayerRef.current = safeLayer;
-      fastLayerRef.current = fastLayer;
-    });
-
-    setMap(mapInstance);
+    initializeMap();
 
     // 清理函數
     return () => {
-      mapInstance.dispose();
+      if (map) {
+        map.dispose();
+      }
     };
   }, []);
 
-  // 更新路線資料
+  // 動態載入 Azure Maps SDK
+  const loadAzureMapsSDK = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (window.atlas) {
+        resolve();
+        return;
+      }
+
+      const script = document.createElement('script');
+      script.src = 'https://atlas.microsoft.com/sdk/javascript/mapcontrol/2/atlas.min.js';
+      script.onload = () => {
+        // 載入CSS
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://atlas.microsoft.com/sdk/javascript/mapcontrol/2/atlas.min.css';
+        document.head.appendChild(link);
+        
+        resolve();
+      };
+      script.onerror = () => reject(new Error('Failed to load Azure Maps SDK'));
+      document.head.appendChild(script);
+    });
+  };
+
+  // 更新路線顯示
+  useEffect(() => {
+    if (!map || !routePath) return;
+
+    // 清除現有路線
+    map.sources.getAll().forEach((source: any) => {
+      if (source.getId().startsWith('route-')) {
+        map.sources.remove(source);
+      }
+    });
+
+    map.layers.getAll().forEach((layer: any) => {
+      if (layer.getId && layer.getId().startsWith('route-')) {
+        map.layers.remove(layer);
+      }
+    });
+
+    try {
+      // 創建路線數據
+      const routeLineString = new window.atlas.data.LineString(
+        routePath.map(point => [point.lng, point.lat])
+      );
+
+      // 創建數據源
+      const routeDataSource = new window.atlas.source.DataSource('route-source');
+      routeDataSource.add(new window.atlas.data.Feature(routeLineString));
+      map.sources.add(routeDataSource);
+
+      // 創建路線圖層
+      const routeLayer = new window.atlas.layer.LineLayer(routeDataSource, 'route-layer', {
+        strokeColor: '#2563eb',
+        strokeWidth: 6,
+        strokeOpacity: 0.8
+      });
+
+      map.layers.add(routeLayer);
+
+      // 調整地圖視野以包含整條路線
+      const bounds = window.atlas.data.BoundingBox.fromData(routeLineString);
+      map.setCamera({
+        bounds: bounds,
+        padding: 50
+      });
+
+    } catch (error) {
+      console.error('❌ 路線顯示錯誤:', error);
+    }
+  }, [map, routePath]);
+
+  // 更新起終點標記
   useEffect(() => {
     if (!map) return;
 
-    map.events.add('ready', () => {
-      // 更新安全路線
-      if (safeRoute) {
-        const safeSource = map.sources.getById('safe-route') as atlas.source.DataSource;
-        if (safeSource) {
-          safeSource.clear();
-          safeSource.add(new atlas.data.Feature(new atlas.data.LineString(safeRoute.coordinates)));
-        }
-      }
-
-      // 更新快速路線
-      if (fastRoute) {
-        const fastSource = map.sources.getById('fast-route') as atlas.source.DataSource;
-        if (fastSource) {
-          fastSource.clear();
-          fastSource.add(new atlas.data.Feature(new atlas.data.LineString(fastRoute.coordinates)));
-        }
+    // 清除現有標記
+    map.sources.getAll().forEach((source: any) => {
+      if (source.getId().startsWith('marker-')) {
+        map.sources.remove(source);
       }
     });
-  }, [map, safeRoute, fastRoute]);
 
-  // 切換路線顯示
-  const toggleRoute = (showSafe: boolean) => {
-    if (!map || !safeLayerRef.current || !fastLayerRef.current) return;
+    map.layers.getAll().forEach((layer: any) => {
+      if (layer.getId && layer.getId().startsWith('marker-')) {
+        map.layers.remove(layer);
+      }
+    });
 
-    setShowSafeRoute(showSafe);
-    
-    // 切換圖層可見性
-    map.layers.setOptions(safeLayerRef.current, { visible: showSafe });
-    map.layers.setOptions(fastLayerRef.current, { visible: !showSafe });
+    try {
+      // 添加起點標記
+      if (startLocation) {
+        const startDataSource = new window.atlas.source.DataSource('marker-start');
+        const startPoint = new window.atlas.data.Feature(
+          new window.atlas.data.Point([startLocation.lng, startLocation.lat]),
+          { type: 'start' }
+        );
+        startDataSource.add(startPoint);
+        map.sources.add(startDataSource);
+
+        const startLayer = new window.atlas.layer.SymbolLayer(startDataSource, 'marker-start-layer', {
+          iconOptions: {
+            image: 'pin-round-green',
+            size: 1.2,
+            anchor: 'bottom'
+          },
+          textOptions: {
+            textField: '起點',
+            offset: [0, -2],
+            color: '#ffffff',
+            haloColor: '#2563eb',
+            haloWidth: 1
+          }
+        });
+        map.layers.add(startLayer);
+      }
+
+      // 添加終點標記
+      if (endLocation) {
+        const endDataSource = new window.atlas.source.DataSource('marker-end');
+        const endPoint = new window.atlas.data.Feature(
+          new window.atlas.data.Point([endLocation.lng, endLocation.lat]),
+          { type: 'end' }
+        );
+        endDataSource.add(endPoint);
+        map.sources.add(endDataSource);
+
+        const endLayer = new window.atlas.layer.SymbolLayer(endDataSource, 'marker-end-layer', {
+          iconOptions: {
+            image: 'pin-round-red',
+            size: 1.2,
+            anchor: 'bottom'
+          },
+          textOptions: {
+            textField: '終點',
+            offset: [0, -2],
+            color: '#ffffff',
+            haloColor: '#dc2626',
+            haloWidth: 1
+          }
+        });
+        map.layers.add(endLayer);
+      }
+
+    } catch (error) {
+      console.error('❌ 標記顯示錯誤:', error);
+    }
+  }, [map, startLocation, endLocation]);
+
+  // 切換地圖樣式
+  const handleStyleChange = (style: string) => {
+    if (map) {
+      map.setStyle({ style });
+      setMapStyle(style);
+    }
   };
 
-  return (
-    <div className="relative h-full w-full">
-      {/* 地圖容器 */}
-      <div ref={mapRef} className="h-full w-full" />
-
-      {/* 路線切換按鈕 */}
-      <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-2 space-x-2">
-        <button
-          onClick={() => toggleRoute(true)}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            showSafeRoute 
-              ? 'bg-green-500 text-white' 
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
-        >
-          顯示最安全路線
-        </button>
-        <button
-          onClick={() => toggleRoute(false)}
-          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-            !showSafeRoute 
-              ? 'bg-blue-500 text-white' 
-              : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-          }`}
-        >
-          顯示最快速路線
-        </button>
+  if (error) {
+    return (
+      <div className={`relative bg-gray-100 rounded-lg overflow-hidden ${className}`}>
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-center p-6">
+            <FiMap className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-medium text-gray-800 mb-2">地圖載入失敗</h3>
+            <p className="text-sm text-gray-600 mb-4">{error}</p>
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              重新載入
+            </button>
+          </div>
+        </div>
       </div>
+    );
+  }
+
+  return (
+    <div className={`relative bg-gray-100 rounded-lg overflow-hidden ${className}`}>
+      {/* 地圖容器 */}
+      <div 
+        ref={mapContainer} 
+        className="w-full h-full"
+        style={{ minHeight: '400px' }}
+      />
+
+      {/* 載入指示器 */}
+      {isLoading && (
+        <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-sm text-gray-600">正在載入地圖...</p>
+          </div>
+        </div>
+      )}
+
+      {/* 地圖控制面板 */}
+      {map && !isLoading && (
+        <div className="absolute top-4 right-4 bg-white rounded-lg shadow-lg p-2 space-y-2">
+          {/* 圖層切換 */}
+          <div className="flex flex-col gap-1">
+            <div className="text-xs font-medium text-gray-700 px-2 py-1">地圖樣式</div>
+            <div className="grid grid-cols-2 gap-1">
+              <button
+                onClick={() => handleStyleChange('road')}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  mapStyle === 'road' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <FiMap className="w-3 h-3 mx-auto mb-1" />
+                道路
+              </button>
+              <button
+                onClick={() => handleStyleChange('satellite')}
+                className={`px-2 py-1 text-xs rounded transition-colors ${
+                  mapStyle === 'satellite' 
+                    ? 'bg-blue-500 text-white' 
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                <FiLayers className="w-3 h-3 mx-auto mb-1" />
+                衛星
+              </button>
+            </div>
+          </div>
+
+          {/* 災害圖層切換 */}
+          <div className="border-t pt-2">
+            <button
+              onClick={() => setShowHazards(!showHazards)}
+              className={`w-full px-2 py-2 text-xs rounded transition-colors flex items-center justify-center gap-2 ${
+                showHazards 
+                  ? 'bg-red-500 text-white' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              <FiAlertTriangle className="w-3 h-3" />
+              <span>{showHazards ? '隱藏' : '顯示'}災害</span>
+              {showHazards ? <FiEyeOff className="w-3 h-3" /> : <FiEye className="w-3 h-3" />}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 災害覆蓋層 */}
+      {map && (
+        <HazardOverlay 
+          map={map} 
+          isVisible={showHazards && !isLoading} 
+        />
+      )}
+
+      {/* 地圖資訊 */}
+      {!isLoading && (
+        <div className="absolute bottom-4 left-4 bg-white bg-opacity-90 rounded-lg px-3 py-2 text-xs text-gray-600">
+          <div className="flex items-center gap-2">
+            <FiMap className="w-3 h-3" />
+            <span>Azure Maps • 即時災害監控</span>
+            {showHazards && (
+              <>
+                <span>•</span>
+                <FiAlertTriangle className="w-3 h-3 text-red-500" />
+                <span className="text-red-600">災害警示開啟</span>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 } 

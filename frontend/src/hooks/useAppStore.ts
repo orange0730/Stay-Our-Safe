@@ -48,6 +48,14 @@ interface AppState {
   setAvoidHazardTypes: (types: string[]) => void;
   setNavigationMode: (mode: 'safest' | 'fastest' | 'balanced') => void;
 
+  // 路線數據狀態
+  routes: {
+    safest: Coordinates[] | null;
+    fastest: Coordinates[] | null;
+    balanced: Coordinates[] | null;
+  };
+  setRoutes: (routes: { safest?: Coordinates[] | null; fastest?: Coordinates[] | null; balanced?: Coordinates[] | null; }) => void;
+
   // 導航狀態
   navigation: {
     isActive: boolean;
@@ -155,6 +163,16 @@ export const useAppStore = create<AppState>((set) => ({
     set((prev) => ({
       routePlanning: { ...prev.routePlanning, navigationMode: mode },
     })),
+
+  // 路線數據狀態
+  routes: {
+    safest: null,
+    fastest: null,
+    balanced: null,
+  },
+  setRoutes: (routes) => set((prev) => ({ 
+    routes: { ...prev.routes, ...routes } 
+  })),
 
   // 導航狀態
   navigation: {

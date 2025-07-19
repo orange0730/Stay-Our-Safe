@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API 測試 - Port 3001</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; border-left: 4px solid; }
+        .success { background-color: #d4edda; border-color: #28a745; color: #155724; }
+        .error { background-color: #f8d7da; border-color: #dc3545; color: #721c24; }
+        .warning { background-color: #fff3cd; border-color: #ffc107; color: #856404; }
+        button { padding: 12px 24px; margin: 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #0056b3; }
+        .status { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .status.online { background: #28a745; }
+        .status.offline { background: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Stay Our Safe API 測試</h1>
+        <p>測試端口: <strong>3001</strong> | 前端端口: <strong>3000</strong></p>
+        
+        <div style="margin: 20px 0;">
+            <button onclick="testAll()">🔄 全部測試</button>
+            <button onclick="testConnection()">🌐 測試連接</button>
+            <button onclick="testHazards()">⚠️ 測試災害 API</button>
+            <button onclick="testAlerts()">🚨 測試警報 API</button>
+            <button onclick="clearResults()">🗑️ 清除結果</button>
+        </div>
+        
+        <div id="status" style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 5px;">
+            <h3>📊 服務狀態</h3>
+            <div id="backend-status">後端 (3001): <span class="status offline"></span>檢查中...</div>
+            <div id="frontend-status">前端 (3000): <span class="status offline"></span>檢查中...</div>
+        </div>
+        
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api';
+        const FRONTEND_URL = 'http://localhost:3000';
+        
+        function addResult(message, type = 'success') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            div.innerHTML = `<strong>${timestamp}</strong>: ${message}`;
+            document.getElementById('results').appendChild(div);
+            document.getElementById('results').scrollTop = document.getElementById('results').scrollHeight;
+        }
+        
+        function updateStatus(service, isOnline) {
+            const statusEl = document.getElementById(`${service}-status`);
+            const statusDot = statusEl.querySelector('.status');
+            statusDot.className = `status ${isOnline ? 'online' : 'offline'}`;
+            const statusText = service === 'backend' ? '後端 (3001)' : '前端 (3000)';
+            statusEl.innerHTML = `${statusText}: <span class="status ${isOnline ? 'online' : 'offline'}"></span>${isOnline ? '正常運行' : '無法連接'}`;
+        }
+        
+        async function testConnection() {
+            try {
+                addResult('🔍 測試後端基本連接...', 'warning');
+                const response = await fetch(`${API_BASE}/health`, { 
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ 後端連接成功！狀態: ${response.status}, 正常運行時間: ${Math.round(data.uptime)}秒`);
+                    updateStatus('backend', true);
+                    return true;
+                } else {
+                    addResult(`⚠️ 後端響應異常: ${response.status} ${response.statusText}`, 'warning');
+                    updateStatus('backend', false);
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ 後端連接失敗: ${error.message}`, 'error');
+                updateStatus('backend', false);
+                return false;
+            }
+        }
+        
+        async function testHazards() {
+            try {
+                addResult('🔍 測試災害資料 API...', 'warning');
+                const response = await fetch(`${API_BASE}/hazards`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const count = data.data?.length || 0;
+                    addResult(`✅ 災害 API 成功！收到 ${count} 筆災害資料`);
+                    if (count > 0) {
+                        addResult(`📊 第一筆災害: ${data.data[0].type} - ${data.data[0].description}`);
+                    }
+                    console.log('Hazards data:', data);
+                    return true;
+                } else {
+                    addResult(`⚠️ 災害 API 響應異常: ${response.status} ${response.statusText}`, 'warning');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ 災害 API 失敗: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testAlerts() {
+            try {
+                addResult('🔍 測試警報資料 API...', 'warning');
+                const response = await fetch(`${API_BASE}/alerts/recent`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const count = data.data?.length || 0;
+                    addResult(`✅ 警報 API 成功！收到 ${count} 筆警報資料`);
+                    if (count > 0) {
+                        addResult(`🚨 最新警報: ${data.data[0].description}`);
+                    }
+                    console.log('Alerts data:', data);
+                    return true;
+                } else {
+                    addResult(`⚠️ 警報 API 響應異常: ${response.status} ${response.statusText}`, 'warning');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ 警報 API 失敗: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testFrontend() {
+            try {
+                const response = await fetch(FRONTEND_URL, { 
+                    method: 'GET',
+                    mode: 'no-cors' // 避免 CORS 問題
+                });
+                updateStatus('frontend', true);
+                return true;
+            } catch (error) {
+                updateStatus('frontend', false);
+                return false;
+            }
+        }
+        
+        async function testAll() {
+            addResult('🚀 開始完整測試...', 'warning');
+            clearResults();
+            
+            const backendOk = await testConnection();
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            if (backendOk) {
+                await testHazards();
+                await new Promise(resolve => setTimeout(resolve, 500));
+                await testAlerts();
+            } else {
+                addResult('❌ 由於後端連接失敗，跳過其他測試', 'error');
+            }
+            
+            await testFrontend();
+            
+            addResult('✨ 測試完成！', 'warning');
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // 自動測試
+        window.onload = () => {
+            addResult('🚀 頁面載入完成，開始自動測試...', 'warning');
+            setTimeout(() => {
+                testConnection();
+                testFrontend();
+            }, 1000);
+        };
+        
+        // 定期檢查狀態
+        setInterval(async () => {
+            await testConnection();
+            await testFrontend();
+        }, 10000); // 每 10 秒檢查一次
+    </script>
+</body>
+</html> 

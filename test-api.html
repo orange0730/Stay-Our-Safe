@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>API 測試</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; border: 1px solid #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Stay Our Safe API 測試</h1>
+    
+    <button onclick="testConnection()">測試連接</button>
+    <button onclick="testHazards()">測試災害 API</button>
+    <button onclick="testAlerts()">測試警報 API</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080/api';
+        
+        function addResult(message, isSuccess = true) {
+            const div = document.createElement('div');
+            div.className = `result ${isSuccess ? 'success' : 'error'}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        async function testConnection() {
+            try {
+                addResult('🔍 測試基本連接...');
+                const response = await fetch(`${API_BASE}/health`);
+                
+                if (response.ok) {
+                    const data = await response.text();
+                    addResult(`✅ 連接成功！狀態: ${response.status}, 響應: ${data}`);
+                } else {
+                    addResult(`⚠️ 連接成功但狀態異常: ${response.status}`, false);
+                }
+            } catch (error) {
+                addResult(`❌ 連接失敗: ${error.message}`, false);
+            }
+        }
+        
+        async function testHazards() {
+            try {
+                addResult('🔍 測試災害 API...');
+                const response = await fetch(`${API_BASE}/hazards`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ 災害 API 成功！收到 ${data.data?.length || 0} 筆資料`);
+                    console.log('Hazards data:', data);
+                } else {
+                    addResult(`⚠️ 災害 API 狀態異常: ${response.status}`, false);
+                }
+            } catch (error) {
+                addResult(`❌ 災害 API 失敗: ${error.message}`, false);
+            }
+        }
+        
+        async function testAlerts() {
+            try {
+                addResult('🔍 測試警報 API...');
+                const response = await fetch(`${API_BASE}/alerts/recent`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ 警報 API 成功！收到 ${data.data?.length || 0} 筆資料`);
+                    console.log('Alerts data:', data);
+                } else {
+                    addResult(`⚠️ 警報 API 狀態異常: ${response.status}`, false);
+                }
+            } catch (error) {
+                addResult(`❌ 警報 API 失敗: ${error.message}`, false);
+            }
+        }
+        
+        // 自動測試連接
+        window.onload = () => {
+            addResult('🚀 頁面載入完成，準備測試 API...');
+            setTimeout(testConnection, 1000);
+        };
+    </script>
+</body>
+</html> 

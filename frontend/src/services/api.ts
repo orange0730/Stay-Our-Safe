@@ -13,7 +13,8 @@ import toast from 'react-hot-toast';
 
 // 建立 axios 實例
 const api = axios.create({
-  baseURL: import.meta.env.PROD ? 'https://stay-our-safe-backend-gcgagbbhgdawd0da.canadacentral-01.azurewebsites.net/api' : '/api',
+  baseURL: import.meta.env.VITE_API_BASE_URL || 
+    (import.meta.env.PROD ? 'https://stay-our-safe-backend-gcgagbbhgdawd0da.canadacentral-01.azurewebsites.net/api' : 'http://localhost:3001/api'),
   timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
@@ -23,10 +24,20 @@ const api = axios.create({
 // 請求攔截器
 api.interceptors.request.use(
   (config) => {
-    // 可以在這裡加入 token
+    // 調試信息：顯示 API 請求
+    console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
+    if (import.meta.env.DEV) {
+      console.log('Request config:', {
+        url: config.url,
+        method: config.method,
+        baseURL: config.baseURL,
+        data: config.data
+      });
+    }
     return config;
   },
   (error) => {
+    console.error('❌ API Request Error:', error);
     return Promise.reject(error);
   }
 );
@@ -34,10 +45,33 @@ api.interceptors.request.use(
 // 回應攔截器
 api.interceptors.response.use(
   (response) => {
+    // 調試信息：顯示 API 響應
+    console.log(`✅ API Response: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
+    if (import.meta.env.DEV) {
+      console.log('Response data:', response.data);
+    }
     return response;
   },
   (error: AxiosError<ApiResponse<any>>) => {
-    const message = error.response?.data?.error?.message || '網路錯誤，請稍後再試';
+    // 調試信息：顯示 API 錯誤
+    console.error(`❌ API Error: ${error.response?.status || 'Network'} ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+    
+    if (error.response) {
+      console.error('API Error Details:', {
+        status: error.response.status,
+        data: error.response.data,
+        url: error.config?.url
+      });
+    } else if (error.request) {
+      console.error('Network Error:', {
+        url: error.config?.url,
+        baseURL: error.config?.baseURL,
+        timeout: error.config?.timeout
+      });
+    }
+    
+    const message = error.response?.data?.error?.message || 
+      (error.request ? '網路連線錯誤 - 請檢查後端是否運行' : '網路錯誤，請稍後再試');
     toast.error(message);
     return Promise.reject(error);
   }
@@ -57,113 +91,68 @@ export const hazardApi = {
     return data.data || null;
   },
 
-  // 取得區域內災害
-  getByArea: async (lat: number, lng: number, radius: number): Promise<HazardData[]> => {
-    const { data } = await api.get<ApiResponse<HazardData[]>>(
-      `/hazards/area/${lat}/${lng}/${radius}`
-    );
+  // 根據位置取得災害
+  getByLocation: async (lat: number, lng: number, radius: number = 5000): Promise<HazardData[]> => {
+    const { data } = await api.get<ApiResponse<HazardData[]>>(`/hazards/nearby?lat=${lat}&lng=${lng}&radius=${radius}`);
     return data.data || [];
   },
 
-  // 重新整理資料
-  refresh: async (): Promise<{ message: string; count: number }> => {
-    const { data } = await api.post<ApiResponse<{ message: string; count: number }>>(
-      '/hazards/refresh'
-    );
+  // 新增災害（由政府來源）
+  create: async (hazard: Omit<HazardData, 'id' | 'reportedAt'>): Promise<HazardData> => {
+    const { data } = await api.post<ApiResponse<HazardData>>('/hazards', hazard);
     return data.data!;
   },
 
-  // 重新整理資料並觸發 AI 分析
-  refreshWithAI: async (): Promise<{ message: string; successCount: number; totalCount: number }> => {
-    const { data } = await api.post<ApiResponse<{ message: string; successCount: number; totalCount: number }>>(
-      '/hazards/refresh-with-ai'
-    );
+  // 更新災害狀態
+  update: async (id: string, updates: Partial<HazardData>): Promise<HazardData> => {
+    const { data } = await api.put<ApiResponse<HazardData>>(`/hazards/${id}`, updates);
     return data.data!;
   },
 
-  // 取得統計資訊
-  getStats: async (): Promise<any> => {
-    const { data } = await api.get<ApiResponse<any>>('/hazards/stats/summary');
-    return data.data;
+  // 刪除災害
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/hazards/${id}`);
+  },
+
+  // 使用 AI 重新整理災害資料
+  refreshWithAI: async (): Promise<{ message: string; updatedCount: number }> => {
+    const { data } = await api.post<ApiResponse<{ message: string; updatedCount: number }>>('/hazards/refresh-with-ai');
+    return data.data!;
   },
 };
 
 // 使用者上報 API
 export const reportApi = {
+  // 取得所有上報
+  getAll: async (): Promise<UserReport[]> => {
+    const { data } = await api.get<ApiResponse<UserReport[]>>('/reports');
+    return data.data || [];
+  },
+
   // 提交上報
-  submit: async (report: Omit<UserReport, 'id' | 'reportedAt'>): Promise<UserReport> => {
+  submit: async (report: Omit<UserReport, 'id' | 'reportedAt' | 'status' | 'verifiedCount'>): Promise<UserReport> => {
     const { data } = await api.post<ApiResponse<UserReport>>('/reports', report);
     return data.data!;
   },
 
-  // 取得上報列表
-  getAll: async (filters?: {
-    type?: HazardType;
-    startDate?: string;
-    endDate?: string;
-    bounds?: { north: number; south: number; east: number; west: number };
-  }): Promise<UserReport[]> => {
-    const params = filters ? {
-      ...filters,
-      bounds: filters.bounds ? JSON.stringify(filters.bounds) : undefined,
-    } : {};
-    
-    const { data } = await api.get<ApiResponse<UserReport[]>>('/reports', { params });
-    return data.data || [];
+  // 驗證上報
+  verify: async (id: string): Promise<UserReport> => {
+    const { data } = await api.post<ApiResponse<UserReport>>(`/reports/${id}/verify`);
+    return data.data!;
   },
 
-  // 取得特定上報
-  getById: async (id: string): Promise<UserReport | null> => {
-    const { data } = await api.get<ApiResponse<UserReport>>(`/reports/${id}`);
-    return data.data || null;
-  },
-
-  // 更新上報
-  update: async (id: string, updates: Partial<UserReport>): Promise<UserReport | null> => {
-    const { data } = await api.put<ApiResponse<UserReport>>(`/reports/${id}`, updates);
-    return data.data || null;
-  },
-
-  // 刪除上報
-  delete: async (id: string): Promise<boolean> => {
-    try {
-      await api.delete(`/reports/${id}`);
-      return true;
-    } catch {
-      return false;
-    }
-  },
-
-  // 取得相似上報
-  getSimilar: async (id: string, radius?: number): Promise<UserReport[]> => {
-    const params = radius ? { radius } : {};
-    const { data } = await api.get<ApiResponse<UserReport[]>>(
-      `/reports/${id}/similar`,
-      { params }
-    );
-    return data.data || [];
-  },
-
-  // 提升為災害
-  promoteToHazard: async (reportIds: string[]): Promise<HazardData | null> => {
-    const { data } = await api.post<ApiResponse<{ message: string; hazard: HazardData }>>(
-      '/reports/promote',
-      { reportIds }
-    );
-    return data.data?.hazard || null;
+  // 標記上報為已解決
+  resolve: async (id: string): Promise<UserReport> => {
+    const { data } = await api.post<ApiResponse<UserReport>>(`/reports/${id}/resolve`);
+    return data.data!;
   },
 };
 
 // 風險評估 API
 export const riskApi = {
   // 生成風險評估
-  generateAssessment: async (center?: { lat: number; lng: number }, radius?: number): Promise<RiskAssessment> => {
-    const params = {
-      ...(center ? { lat: center.lat, lng: center.lng } : {}),
-      ...(radius ? { radius } : {}),
-    };
-    
-    const { data } = await api.get<ApiResponse<RiskAssessment>>('/risks/assessment', { params });
+  generateAssessment: async (): Promise<RiskAssessment> => {
+    const { data } = await api.get<ApiResponse<RiskAssessment>>('/risks/assessment');
     return data.data!;
   },
 
@@ -223,20 +212,66 @@ export const mapApi = {
 
   // 路線規劃
   planRoute: async (options: RouteOptions): Promise<RoutePlanningResult> => {
-    if (import.meta.env.DEV) {
-      // 開發環境使用模擬數據
+    try {
+      // 先嘗試調用後端 API
+      console.log('🗺️ 請求路線規劃:', options);
+      const { data } = await api.post<ApiResponse<RoutePlanningResult>>('/map/route', options);
+      console.log('✅ 後端路線規劃成功:', data);
+      return data.data!;
+    } catch (error) {
+      console.warn('❌ 後端路線規劃失敗，使用本地模擬路線:', error);
+      
+      // 使用本地模擬數據
       await new Promise(resolve => setTimeout(resolve, 1000)); // 模擬 API 延遲
 
-      // 生成模擬路線
+      // 生成模擬路線 - 模擬真實道路網格
       const generateRoute = (start: any, end: any) => {
         const points = [];
-        const steps = 10;
+        const steps = 60; // 更多節點讓路線更細緻
+        
+        // 計算總距離
+        const totalDistance = Math.sqrt(Math.pow(end.lat - start.lat, 2) + Math.pow(end.lng - start.lng, 2));
+        const latDiff = end.lat - start.lat;
+        const lngDiff = end.lng - start.lng;
+        
+        // 生成基於道路網格的路線點
         for (let i = 0; i <= steps; i++) {
+          const ratio = i / steps;
+          
+          // 基本線性插值
+          let currentLat = start.lat + latDiff * ratio;
+          let currentLng = start.lng + lngDiff * ratio;
+          
+          // 添加道路轉彎效果 - 模擬真實道路
+          if (i > 0 && i < steps) {
+            // 主要轉彎點（模擬經過重要路口）
+            if (i % 15 === 0) {
+              const majorTurn = totalDistance * 0.08 * Math.sin(ratio * Math.PI * 2);
+              currentLat += majorTurn * Math.cos(ratio * Math.PI * 3);
+              currentLng += majorTurn * Math.sin(ratio * Math.PI * 3);
+            }
+            
+            // 小幅度道路彎曲（模擬道路自然彎曲）
+            const roadCurve = totalDistance * 0.02 * Math.sin(ratio * Math.PI * 8);
+            const crossRoadVariation = totalDistance * 0.015 * Math.cos(ratio * Math.PI * 6);
+            
+            currentLat += roadCurve * 0.3;
+            currentLng += crossRoadVariation * 0.5;
+            
+            // 避開障礙物的小繞路
+            if (i % 20 === 10) {
+              const detour = totalDistance * 0.05 * Math.sin(ratio * Math.PI * 4);
+              currentLat += detour * 0.7;
+              currentLng += detour * 0.3;
+            }
+          }
+          
           points.push({
-            lat: start.lat + (end.lat - start.lat) * (i / steps),
-            lng: start.lng + (end.lng - start.lng) * (i / steps)
+            lat: currentLat,
+            lng: currentLng
           });
         }
+        
         return points;
       };
 
@@ -310,10 +345,6 @@ export const mapApi = {
         },
         riskAreas: []
       };
-    } else {
-      // 生產環境可以連接真實的路線 API（如 OSRM、GraphHopper 等）
-      const { data } = await api.post<ApiResponse<RoutePlanningResult>>('/map/route', options);
-      return data.data!;
     }
   },
 

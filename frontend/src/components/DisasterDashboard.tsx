@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../hooks/useAppStore';
 import { HazardData, HazardType, SeverityLevel } from '../types';
-import { FiAlertTriangle, FiAlertCircle, FiMapPin, FiCalendar, FiFilter } from 'react-icons/fi';
+import { FiAlertTriangle, FiAlertCircle, FiMapPin, FiCalendar, FiFilter, FiX } from 'react-icons/fi';
 import clsx from 'clsx';
 
-export function DisasterDashboard() {
+interface DisasterDashboardProps {
+  onClose: () => void;
+}
+
+export function DisasterDashboard({ onClose }: DisasterDashboardProps) {
   const hazards = useAppStore((state) => state.hazards);
   const [selectedSeverity, setSelectedSeverity] = useState<number | null>(null);
   const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -211,7 +215,16 @@ export function DisasterDashboard() {
       <div className="max-w-7xl mx-auto">
         {/* 標題和統計 */}
         <div className="mb-6">
-          <h2 className="text-2xl font-bold mb-4">近期災害資訊</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold">近期災害資訊</h2>
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+              title="關閉"
+            >
+              <FiX className="w-6 h-6 text-gray-500" />
+            </button>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <div className="bg-white rounded-lg p-4 text-center shadow">
               <div className="text-3xl font-bold text-red-500">

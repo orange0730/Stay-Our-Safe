@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>導航和 API 全面測試</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .test-section { background: white; padding: 20px; margin: 20px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; border-left: 4px solid; }
+        .success { background-color: #d4edda; border-color: #28a745; color: #155724; }
+        .error { background-color: #f8d7da; border-color: #dc3545; color: #721c24; }
+        .warning { background-color: #fff3cd; border-color: #ffc107; color: #856404; }
+        button { padding: 12px 24px; margin: 8px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
+        .status { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        .status.online { background: #28a745; }
+        .status.offline { background: #dc3545; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .progress { width: 100%; background: #e9ecef; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+        .progress-bar { height: 20px; background: #007bff; transition: width 0.3s; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Stay Our Safe - 完整功能測試</h1>
+        <p>最後更新: <span id="last-update"></span></p>
+        
+        <!-- 服務狀態概覽 -->
+        <div class="test-section">
+            <h2>📊 服務狀態概覽</h2>
+            <div class="grid">
+                <div>
+                    <h3>後端服務 (Port 3001)</h3>
+                    <div id="backend-status">檢查中...</div>
+                </div>
+                <div>
+                    <h3>前端服務 (Port 3000)</h3>
+                    <div id="frontend-status">檢查中...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- API 測試 -->
+        <div class="test-section">
+            <h2>🌐 API 端點測試</h2>
+            <div style="margin: 20px 0;">
+                <button onclick="testAllApis()">🔄 測試所有 API</button>
+                <button onclick="testHazards()">⚠️ 災害 API</button>
+                <button onclick="testAlerts()">🚨 警報 API</button>
+                <button onclick="testNavigation()">🗺️ 導航 API</button>
+                <button onclick="clearResults()">🗑️ 清除結果</button>
+            </div>
+            <div class="progress">
+                <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+            </div>
+            <div id="api-results"></div>
+        </div>
+
+        <!-- 導航測試 -->
+        <div class="test-section">
+            <h2>🧭 導航功能測試</h2>
+            <div class="grid">
+                <div>
+                    <h4>測試路線</h4>
+                    <button onclick="testRouteCalculation()">計算測試路線</button>
+                    <button onclick="testAddressSearch()">測試地址搜索</button>
+                    <div id="navigation-results"></div>
+                </div>
+                <div>
+                    <h4>路線資訊</h4>
+                    <div id="route-info">尚未計算路線</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 即時監控 -->
+        <div class="test-section">
+            <h2>📈 即時監控</h2>
+            <button onclick="toggleMonitoring()" id="monitor-btn">開始監控</button>
+            <div id="monitoring-data"></div>
+        </div>
+
+        <!-- 詳細日誌 */
+        <div class="test-section">
+            <h2>📋 詳細日誌</h2>
+            <div id="detailed-logs" style="max-height: 400px; overflow-y: auto; background: #f8f9fa; padding: 15px; border-radius: 4px; font-family: monospace; font-size: 12px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:3001/api';
+        const FRONTEND_URL = 'http://localhost:3000';
+        let isMonitoring = false;
+        let monitoringInterval = null;
+        
+        // 更新時間
+        document.getElementById('last-update').textContent = new Date().toLocaleString();
+        
+        function addResult(message, type = 'success', target = 'api-results') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            div.innerHTML = `<strong>${timestamp}</strong>: ${message}`;
+            document.getElementById(target).appendChild(div);
+            
+            // 同時添加到詳細日誌
+            addToLog(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function addToLog(message) {
+            const logDiv = document.getElementById('detailed-logs');
+            const timestamp = new Date().toISOString();
+            logDiv.innerHTML += `${timestamp}: ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function updateProgress(percentage) {
+            document.getElementById('progress-bar').style.width = `${percentage}%`;
+        }
+        
+        function updateStatus(service, isOnline) {
+            const statusEl = document.getElementById(`${service}-status`);
+            const statusClass = isOnline ? 'online' : 'offline';
+            const statusText = isOnline ? '正常運行' : '無法連接';
+            statusEl.innerHTML = `<span class="status ${statusClass}"></span>${statusText}`;
+        }
+        
+        async function testBackend() {
+            try {
+                addToLog('測試後端健康檢查...');
+                const response = await fetch(`${API_BASE}/../health`, { 
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    updateStatus('backend', true);
+                    addResult(`✅ 後端服務正常 (正常運行時間: ${Math.round(data.uptime || 0)}秒)`);
+                    return true;
+                } else {
+                    updateStatus('backend', false);
+                    addResult(`⚠️ 後端響應異常: ${response.status}`, 'warning');
+                    return false;
+                }
+            } catch (error) {
+                updateStatus('backend', false);
+                addResult(`❌ 後端連接失敗: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testFrontend() {
+            try {
+                const response = await fetch(FRONTEND_URL, { 
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
+                updateStatus('frontend', true);
+                addResult(`✅ 前端服務正常`);
+                return true;
+            } catch (error) {
+                updateStatus('frontend', false);
+                addResult(`❌ 前端連接失敗`, 'error');
+                return false;
+            }
+        }
+        
+        async function testHazards() {
+            try {
+                addResult('🔍 測試災害資料 API...', 'warning');
+                const response = await fetch(`${API_BASE}/hazards`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const count = data.data?.length || 0;
+                    addResult(`✅ 災害 API 成功！收到 ${count} 筆災害資料`);
+                    if (count > 0) {
+                        addResult(`📊 災害類型: ${data.data.map(h => h.type).join(', ')}`);
+                    }
+                    return true;
+                } else {
+                    addResult(`⚠️ 災害 API 異常: ${response.status}`, 'warning');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ 災害 API 失敗: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testAlerts() {
+            try {
+                addResult('🔍 測試警報資料 API...', 'warning');
+                const response = await fetch(`${API_BASE}/alerts/recent`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    const alertCount = data.data?.recentAlerts?.length || 0;
+                    const assessmentCount = data.data?.recentAssessments?.length || 0;
+                    addResult(`✅ 警報 API 成功！收到 ${alertCount} 筆警報，${assessmentCount} 筆評估`);
+                    
+                    if (data.data?.summary) {
+                        const summary = data.data.summary;
+                        addResult(`📈 統計: ${summary.totalAlerts} 總警報，${summary.activeAlerts} 進行中，${summary.highSeverityAlerts} 高風險`);
+                    }
+                    return true;
+                } else {
+                    addResult(`⚠️ 警報 API 異常: ${response.status}`, 'warning');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ 警報 API 失敗: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testNavigation() {
+            try {
+                addResult('🔍 測試導航路線規劃...', 'warning');
+                
+                const testRoute = {
+                    start: { lat: 25.0330, lng: 121.5654 },  // 台北車站
+                    end: { lat: 25.0478, lng: 121.5173 },    // 西門町
+                    preferSafety: true,
+                    avoidHazardTypes: ['flood']
+                };
+                
+                const response = await fetch(`${API_BASE}/map/route`, {
+                    method: 'POST',
+                    mode: 'cors',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testRoute)
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ 導航 API 成功！路線規劃完成`);
+                    
+                    if (data.data?.safestRoute) {
+                        const route = data.data.safestRoute;
+                        const distance = (route.distance / 1000).toFixed(1);
+                        const duration = Math.round(route.duration / 60);
+                        addResult(`🗺️ 最安全路線: ${distance}公里，預估${duration}分鐘，風險等級${route.riskLevel}/4`);
+                        
+                        // 更新路線資訊顯示
+                        document.getElementById('route-info').innerHTML = `
+                            <div style="background: #f8f9fa; padding: 10px; border-radius: 4px;">
+                                <strong>測試路線 (台北車站 → 西門町)</strong><br>
+                                距離: ${distance} 公里<br>
+                                時間: ${duration} 分鐘<br>
+                                風險: ${route.riskLevel}/4<br>
+                                路點: ${route.route?.length || 0} 個
+                            </div>
+                        `;
+                    }
+                    return true;
+                } else {
+                    addResult(`⚠️ 導航 API 異常: ${response.status}`, 'warning');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ 導航 API 失敗: ${error.message}`, 'error');
+                return false;
+            }
+        }
+        
+        async function testAddressSearch() {
+            try {
+                addResult('🔍 測試地址搜索...', 'warning', 'navigation-results');
+                
+                // 使用 OpenStreetMap Nominatim API 測試
+                const response = await fetch(
+                    `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent('台北車站')}&limit=3&countrycodes=tw`
+                );
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ 地址搜索成功！找到 ${data.length} 個結果`, 'success', 'navigation-results');
+                    
+                    if (data.length > 0) {
+                        addResult(`📍 第一個結果: ${data[0].display_name}`, 'success', 'navigation-results');
+                    }
+                    return true;
+                } else {
+                    addResult(`⚠️ 地址搜索失敗: ${response.status}`, 'warning', 'navigation-results');
+                    return false;
+                }
+            } catch (error) {
+                addResult(`❌ 地址搜索錯誤: ${error.message}`, 'error', 'navigation-results');
+                return false;
+            }
+        }
+        
+        async function testRouteCalculation() {
+            addResult('🧮 模擬前端路線計算...', 'warning', 'navigation-results');
+            
+            // 模擬前端的路線計算邏輯
+            const start = { lat: 25.0330, lng: 121.5654 };
+            const end = { lat: 25.0478, lng: 121.5173 };
+            
+            // 計算直線距離
+            const distance = Math.sqrt(
+                Math.pow(end.lat - start.lat, 2) + 
+                Math.pow(end.lng - start.lng, 2)
+            ) * 111000;
+            
+            addResult(`📏 直線距離約 ${(distance / 1000).toFixed(1)} 公里`, 'success', 'navigation-results');
+            addResult(`⏱️ 預估步行時間約 ${Math.round(distance / 80)} 分鐘`, 'success', 'navigation-results');
+            
+            // 測試路點生成
+            const routePoints = [];
+            const steps = 10;
+            for (let i = 0; i <= steps; i++) {
+                routePoints.push({
+                    lat: start.lat + (end.lat - start.lat) * (i / steps),
+                    lng: start.lng + (end.lng - start.lng) * (i / steps)
+                });
+            }
+            
+            addResult(`🗺️ 生成 ${routePoints.length} 個路點`, 'success', 'navigation-results');
+        }
+        
+        async function testAllApis() {
+            addResult('🚀 開始完整 API 測試...', 'warning');
+            clearResults();
+            updateProgress(0);
+            
+            const tests = [
+                { name: '後端服務', fn: testBackend },
+                { name: '前端服務', fn: testFrontend },
+                { name: '災害資料', fn: testHazards },
+                { name: '警報資料', fn: testAlerts },
+                { name: '導航功能', fn: testNavigation }
+            ];
+            
+            let completed = 0;
+            for (const test of tests) {
+                try {
+                    addResult(`🔄 測試 ${test.name}...`, 'warning');
+                    await test.fn();
+                    completed++;
+                    updateProgress((completed / tests.length) * 100);
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                } catch (error) {
+                    addResult(`❌ ${test.name} 測試失敗: ${error.message}`, 'error');
+                }
+            }
+            
+            addResult(`✨ 測試完成！完成 ${completed}/${tests.length} 項測試`, completed === tests.length ? 'success' : 'warning');
+        }
+        
+        function toggleMonitoring() {
+            const btn = document.getElementById('monitor-btn');
+            
+            if (isMonitoring) {
+                clearInterval(monitoringInterval);
+                isMonitoring = false;
+                btn.textContent = '開始監控';
+                btn.style.background = '#007bff';
+            } else {
+                isMonitoring = true;
+                btn.textContent = '停止監控';
+                btn.style.background = '#dc3545';
+                
+                monitoringInterval = setInterval(async () => {
+                    const monitoringDiv = document.getElementById('monitoring-data');
+                    const timestamp = new Date().toLocaleTimeString();
+                    
+                    try {
+                        // 快速檢查後端狀態
+                        const response = await fetch(`${API_BASE}/../health`, { 
+                            method: 'GET',
+                            mode: 'cors',
+                            cache: 'no-cache'
+                        });
+                        
+                        if (response.ok) {
+                            const data = await response.json();
+                            monitoringDiv.innerHTML = `
+                                <div style="background: #d4edda; padding: 10px; border-radius: 4px; margin: 5px 0;">
+                                    <strong>${timestamp}</strong> - ✅ 後端正常 (正常運行: ${Math.round(data.uptime || 0)}秒)
+                                </div>
+                            ` + (monitoringDiv.innerHTML || '');
+                        } else {
+                            monitoringDiv.innerHTML = `
+                                <div style="background: #f8d7da; padding: 10px; border-radius: 4px; margin: 5px 0;">
+                                    <strong>${timestamp}</strong> - ❌ 後端異常 (${response.status})
+                                </div>
+                            ` + (monitoringDiv.innerHTML || '');
+                        }
+                    } catch (error) {
+                        monitoringDiv.innerHTML = `
+                            <div style="background: #f8d7da; padding: 10px; border-radius: 4px; margin: 5px 0;">
+                                <strong>${timestamp}</strong> - ❌ 連接失敗
+                            </div>
+                        ` + (monitoringDiv.innerHTML || '');
+                    }
+                    
+                    // 限制監控記錄數量
+                    const records = monitoringDiv.children;
+                    if (records.length > 10) {
+                        monitoringDiv.removeChild(records[records.length - 1]);
+                    }
+                }, 5000);
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('api-results').innerHTML = '';
+            document.getElementById('navigation-results').innerHTML = '';
+            updateProgress(0);
+        }
+        
+        // 自動初始化
+        window.onload = () => {
+            addToLog('測試頁面初始化完成');
+            setTimeout(() => {
+                testBackend();
+                testFrontend();
+            }, 1000);
+        };
+    </script>
+</body>
+</html> 

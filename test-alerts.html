@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>測試 Alerts API</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; background: #f5f5f5; }
+        .result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background: #d4edda; color: #155724; }
+        .error { background: #f8d7da; color: #721c24; }
+        button { padding: 10px 20px; margin: 10px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 4px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🚨 Alerts API 測試</h1>
+    
+    <button onclick="testAlertsEndpoint()">測試 /api/alerts/recent</button>
+    <button onclick="testBackendHealth()">測試後端健康</button>
+    <button onclick="clearResults()">清除結果</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        const API_BASE = 'http://localhost:3001';
+        
+        function addResult(message, type = 'success') {
+            const div = document.createElement('div');
+            div.className = `result ${type}`;
+            div.innerHTML = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            document.getElementById('results').appendChild(div);
+        }
+        
+        async function testBackendHealth() {
+            try {
+                addResult('🔍 測試後端健康檢查...', 'info');
+                const response = await fetch(`${API_BASE}/health`, {
+                    method: 'GET',
+                    mode: 'cors'
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult(`✅ 後端健康檢查成功: ${JSON.stringify(data)}`, 'success');
+                } else {
+                    addResult(`⚠️ 後端健康檢查異常: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addResult(`❌ 後端健康檢查失敗: ${error.message}`, 'error');
+            }
+        }
+        
+        async function testAlertsEndpoint() {
+            try {
+                addResult('🔍 測試 /api/alerts/recent 端點...', 'info');
+                
+                // 測試請求
+                const response = await fetch(`${API_BASE}/api/alerts/recent`, {
+                    method: 'GET',
+                    mode: 'cors',
+                    headers: {
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                addResult(`📊 響應狀態: ${response.status} ${response.statusText}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addResult('✅ 成功獲取 alerts 數據!', 'success');
+                    
+                    // 顯示詳細數據
+                    const alertCount = data.data?.recentAlerts?.length || 0;
+                    const assessmentCount = data.data?.recentAssessments?.length || 0;
+                    
+                    addResult(`📈 數據統計: ${alertCount} 筆警報, ${assessmentCount} 筆 AI 評估`);
+                    
+                    // 顯示原始數據 (截斷顯示)
+                    const jsonStr = JSON.stringify(data, null, 2);
+                    const truncatedJson = jsonStr.length > 1000 ? jsonStr.substring(0, 1000) + '...' : jsonStr;
+                    addResult(`<pre>${truncatedJson}</pre>`);
+                    
+                    // 測試數據結構
+                    if (data.data?.recentAlerts) {
+                        addResult('✅ recentAlerts 字段存在', 'success');
+                        if (data.data.recentAlerts.length > 0) {
+                            const firstAlert = data.data.recentAlerts[0];
+                            addResult(`📄 第一筆警報: ${firstAlert.type} - ${firstAlert.description}`);
+                        }
+                    } else {
+                        addResult('❌ recentAlerts 字段缺失', 'error');
+                    }
+                    
+                    if (data.data?.recentAssessments) {
+                        addResult('✅ recentAssessments 字段存在', 'success');
+                        if (data.data.recentAssessments.length > 0) {
+                            const firstAssessment = data.data.recentAssessments[0];
+                            addResult(`📊 第一筆評估: 風險等級 ${firstAssessment.overallRisk}/4`);
+                        }
+                    } else {
+                        addResult('❌ recentAssessments 字段缺失', 'error');
+                    }
+                    
+                } else {
+                    const errorText = await response.text();
+                    addResult(`❌ API 錯誤 (${response.status}): ${errorText}`, 'error');
+                }
+                
+            } catch (error) {
+                addResult(`❌ 網路錯誤: ${error.message}`, 'error');
+                console.error('完整錯誤:', error);
+            }
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        // 自動測試
+        window.onload = () => {
+            addResult('🚀 頁面加載完成，開始自動測試...');
+            setTimeout(() => {
+                testBackendHealth();
+                setTimeout(() => {
+                    testAlertsEndpoint();
+                }, 2000);
+            }, 1000);
+        };
+    </script>
+</body>
+</html> 

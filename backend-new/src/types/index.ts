@@ -59,6 +59,8 @@ export interface RouteResult {
   warnings: string[];
   riskLevel: SeverityLevel;
   instructions?: string[];
+  precision?: 'ultra_high' | 'meter_level' | 'approximate';
+  nodeCount?: number;
 }
 
 // 路線規劃結果
@@ -67,6 +69,8 @@ export interface RoutePlanningResult {
   fastestRoute?: RouteResult;
   balancedRoute?: RouteResult;
   riskAreas: any[];
+  precision?: 'ultra_high' | 'meter_level' | 'approximate';
+  networkStats?: any;
 }
 
 // API 回應格式

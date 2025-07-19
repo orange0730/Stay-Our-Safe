@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiDatabase, FiActivity, FiAlertTriangle, FiFileText } from 'react-icons/fi';
-import { hazardApi } from '../services/api';
+import api, { hazardApi } from '../services/api';
 import toast from 'react-hot-toast';
 
 interface AdminDashboardProps {
@@ -23,29 +23,129 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
   const [aiAnalysis, setAIAnalysis] = useState<AIAnalysis[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [crawlStatus, setCrawlStatus] = useState<any>(null);
+  const [lastUpdate, setLastUpdate] = useState<string | null>(null);
 
+  // 每15秒自動刷新數據（配合10秒爬取週期）
   useEffect(() => {
     fetchData();
-  }, []);
+    
+    let intervalId: number | null = null;
+    if (autoRefresh) {
+      intervalId = window.setInterval(() => {
+        fetchData();
+      }, 15000); // 15秒
+    }
+
+    return () => {
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [autoRefresh]);
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      // 使用新的後端 API
-      const API_BASE_URL = import.meta.env.PROD 
-        ? 'https://stay-our-safe-backend-gcgagbbhgdawd0da.canadacentral-01.azurewebsites.net/api' 
-        : '/api';
+      console.log('🔍 AdminDashboard 開始獲取 alerts 數據...');
       
-      const response = await fetch(`${API_BASE_URL}/alerts/recent`);
-      const data = await response.json();
+      // 使用統一的 API 客戶端
+      const response = await api.get('/alerts/recent');
+      const data = response.data;
       
-      if (data.success) {
-        setRawData(data.recentAlerts || []);
-        setAIAnalysis(data.recentAssessments || []);
+      console.log('📊 AdminDashboard 收到響應:', data);
+      
+      if (data.success && data.data) {
+        const alerts = data.data.recentAlerts || [];
+        const assessments = data.data.recentAssessments || [];
+        
+        setRawData(alerts);
+        setAIAnalysis(assessments);
+        
+        // 更新爬取狀態和時間戳
+        const summary = data.data.summary || {};
+        setCrawlStatus(summary.crawlStatus);
+        setLastUpdate(new Date().toISOString());
+        
+        console.log('✅ AdminDashboard 數據設置完成:', {
+          alertCount: alerts.length,
+          assessmentCount: assessments.length,
+          summary: summary,
+          isRealData: summary.isRealData,
+          crawlStatus: summary.crawlStatus
+        });
+        
+        // 根據數據類型顯示不同的提示
+        if (summary.isRealData) {
+          toast.success(`🤖 實時數據: ${alerts.length} 筆警報, ${assessments.length} 筆 AI 分析`);
+        } else {
+          toast(`⚠️ 系統啟動中: 顯示模擬數據 (${alerts.length} 筆警報)`, {
+            icon: '⚠️',
+            duration: 4000
+          });
+        }
+      } else {
+        throw new Error('數據格式錯誤或無數據');
       }
     } catch (error) {
-      console.error('Error fetching admin data:', error);
-      toast.error('無法載入後台資料');
+      console.error('❌ AdminDashboard 數據獲取失敗:', error);
+      
+      // 使用模擬數據作為後備
+      const mockAlerts = [
+        {
+          id: `mock_alert_${Date.now()}`,
+          type: 'flood',
+          severity: 'medium',
+          location: { lat: 25.0330, lng: 121.5654 },
+          description: '台北車站附近積水警報 (模擬數據)',
+          timestamp: new Date().toISOString(),
+          source: 'mock',
+          status: 'active'
+        },
+        {
+          id: `mock_alert_${Date.now() + 1}`,
+          type: 'roadblock',
+          severity: 'high',
+          location: { lat: 25.0478, lng: 121.5173 },
+          description: '西門町道路封閉 (模擬數據)',
+          timestamp: new Date().toISOString(),
+          source: 'mock',
+          status: 'active'
+        }
+      ];
+      
+      const mockAssessments: AIAnalysis[] = [
+        {
+          id: `mock_assessment_${Date.now()}`,
+          timestamp: new Date().toISOString(),
+          overallRiskLevel: '中等風險',
+          riskScore: 2.5,
+          summary: '根據當前氣象資料和交通狀況，此區域存在中等程度的積水風險。建議民眾避開低窪路段，選擇替代路線。',
+          recommendations: ['避開低窪地區', '選擇替代路線', '使用大眾運輸'],
+          dataSource: {
+            location: { lat: 25.0330, lng: 121.5654 },
+            confidence: 0.85,
+            riskFactors: ['flooding', 'traffic']
+          }
+        },
+        {
+          id: `mock_assessment_${Date.now() + 1}`,
+          timestamp: new Date().toISOString(),
+          overallRiskLevel: '高風險',
+          riskScore: 3.2,
+          summary: 'AI 分析顯示此區域因施工造成交通壅塞，建議提前規劃替代路線並預留額外時間。',
+          recommendations: ['提前規劃路線', '預留額外通行時間', '考慮大眾運輸'],
+          dataSource: {
+            location: { lat: 25.0478, lng: 121.5173 },
+            confidence: 0.92,
+            riskFactors: ['construction', 'traffic']
+          }
+        }
+      ];
+      
+      setRawData(mockAlerts);
+      setAIAnalysis(mockAssessments);
+      
+      toast.error('無法連接後端，使用模擬數據展示');
     } finally {
       setLoading(false);
     }
@@ -70,14 +170,51 @@ export function AdminDashboard({ onClose }: AdminDashboardProps) {
   const renderRawDataTab = () => (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-semibold">原始 API 資料</h3>
-        <button
-          onClick={refreshData}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-        >
-          <FiRefreshCw className={loading ? 'animate-spin' : ''} />
-          抓取資料並 AI 分析
-        </button>
+        <div className="flex items-center gap-4">
+          <h3 className="text-lg font-semibold">原始 API 資料</h3>
+          
+          {/* 自動爬取狀態指示器 */}
+          {crawlStatus && (
+            <div className="flex items-center gap-2 text-sm bg-gray-100 px-3 py-1 rounded-full">
+              <div className={`w-2 h-2 rounded-full ${crawlStatus.isRunning ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`}></div>
+              <span className="text-gray-700">
+                {crawlStatus.isRunning ? '🤖 自動爬取中' : '⏸️ 爬取已停止'}
+              </span>
+              {crawlStatus.totalAnalyses > 0 && (
+                <span className="text-gray-500">({crawlStatus.totalAnalyses}筆)</span>
+              )}
+            </div>
+          )}
+        </div>
+        
+        <div className="flex items-center gap-3">
+          {/* 自動刷新開關 */}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={autoRefresh}
+              onChange={(e) => setAutoRefresh(e.target.checked)}
+              className="rounded"
+            />
+            <span className="text-gray-600">自動刷新 (15s)</span>
+          </label>
+          
+          {/* 最後更新時間 */}
+          {lastUpdate && (
+            <span className="text-xs text-gray-500">
+              更新: {new Date(lastUpdate).toLocaleTimeString()}
+            </span>
+          )}
+          
+          <button
+            onClick={refreshData}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+            disabled={loading}
+          >
+            <FiRefreshCw className={loading ? 'animate-spin' : ''} />
+            {loading ? '載入中...' : '手動刷新'}
+          </button>
+        </div>
       </div>
       
       <div className="grid gap-4">

@@ -1,5 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { FiAlertTriangle, FiAlertCircle, FiActivity } from 'react-icons/fi';
+import { FiAlertTriangle, FiAlertCircle, FiActivity, FiX } from 'react-icons/fi';
+
+interface RecentAlertsProps {
+  onClose: () => void;
+}
 
 interface AlertData {
     id: string;
@@ -27,7 +31,7 @@ interface RiskAssessment {
     recommendations: string[];
 }
 
-export function RecentAlerts() {
+export function RecentAlerts({ onClose }: RecentAlertsProps) {
     const [alerts, setAlerts] = useState<AlertData[]>([]);
     const [assessments, setAssessments] = useState<RiskAssessment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -119,6 +123,21 @@ export function RecentAlerts() {
 
     return (
         <div className="space-y-6">
+            {/* 標題列 */}
+            <div className="flex items-center justify-between p-4 border-b bg-white rounded-t-lg">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                    <FiActivity className="text-blue-600" />
+                    最新警報
+                </h2>
+                <button
+                    onClick={onClose}
+                    className="p-1 hover:bg-gray-100 rounded-full transition-colors"
+                    title="關閉"
+                >
+                    <FiX className="w-5 h-5 text-gray-500" />
+                </button>
+            </div>
+
             {/* 最新風險評估 */}
             {assessments.length > 0 && (
                 <div className="bg-white rounded-lg shadow">

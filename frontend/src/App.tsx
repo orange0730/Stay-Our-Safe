@@ -10,10 +10,11 @@ import { AdminDashboard } from './components/AdminDashboard';
 import { DisasterDashboard } from './components/DisasterDashboard';
 import { DisasterSummary } from './components/DisasterSummary';
 import { NavigationPanel } from './components/NavigationPanel';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { useAppStore } from './hooks/useAppStore';
 import { useDataFetch } from './hooks/useDataFetch';
 import { useGeolocation } from './hooks/useGeolocation';
-import { FiRefreshCw, FiBell, FiSettings, FiGrid, FiNavigation } from 'react-icons/fi';
+import { FiRefreshCw, FiBell, FiSettings, FiGrid, FiNavigation, FiList } from 'react-icons/fi';
 import toast, { Toaster } from 'react-hot-toast';
 import { QueryClient, QueryClientProvider } from 'react-query';
 
@@ -35,17 +36,59 @@ interface RiskData {
   description: string;
 }
 
-function App() {
+function AppContent() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [showAlerts, setShowAlerts] = useState(false);
   const [riskData, setRiskData] = useState<RiskData | null>(null);
-  const [useAzureMap, setUseAzureMap] = useState(false); // 預設使用 Leaflet 地圖，因為 Azure Maps key 可能缺失
+  const [useAzureMap, setUseAzureMap] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showDisasterDashboard, setShowDisasterDashboard] = useState(false);
+  const [showDisasterSummary, setShowDisasterSummary] = useState(false);
   const [showNavigation, setShowNavigation] = useState(false);
   const isLoading = useAppStore((state) => state.isLoading);
   const reportMode = useAppStore((state) => state.reportMode);
   const setReportMode = useAppStore((state) => state.setReportMode);
+
+  // 全域錯誤處理
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error('Global error caught:', event.error);
+      
+      // 過濾掉 MetaMask 和其他擴展的錯誤
+      if (event.filename?.includes('chrome-extension://') || 
+          event.message?.includes('MetaMask') ||
+          event.message?.includes('chain')) {
+        return; // 忽略擴展錯誤
+      }
+      
+      // 只在開發環境顯示錯誤
+      if (import.meta.env.DEV) {
+        toast.error(`錯誤: ${event.message}`);
+      }
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error('Unhandled promise rejection:', event.reason);
+      
+      // 過濾掉 MetaMask 和其他擴展的錯誤
+      if (typeof event.reason === 'string' && 
+          (event.reason.includes('MetaMask') || event.reason.includes('chain'))) {
+        return;
+      }
+      
+      if (import.meta.env.DEV) {
+        toast.error('網路請求失敗');
+      }
+    };
+
+    window.addEventListener('error', handleError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
 
   // 自動取得使用者位置
   useGeolocation();
@@ -56,20 +99,15 @@ function App() {
   // 取得風險資料
   const fetchRisk = async () => {
     try {
-      // 實際環境中應該呼叫 API
-      // const response = await fetch('/api/risk');
-      // const data = await response.json();
-      
-      // 暫時使用 mock 資料
       // 設定預設風險資料
-    setRiskData({
-      routes: {
-        safe: { type: 'LineString', coordinates: [] },
-        fast: { type: 'LineString', coordinates: [] }
-      },
-      riskLevel: 0,
-      description: '載入中...'
-    });
+      setRiskData({
+        routes: {
+          safe: { type: 'LineString', coordinates: [] },
+          fast: { type: 'LineString', coordinates: [] }
+        },
+        riskLevel: 0,
+        description: '載入中...'
+      });
       toast.success('風險資料載入成功');
     } catch (error) {
       console.error('載入風險資料失敗:', error);
@@ -103,16 +141,22 @@ function App() {
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
+    <ErrorBoundary>
       <Toaster position="top-right" />
       <NotificationSystem />
       {isLoading && <LoadingOverlay />}
 
       <div className="flex h-screen overflow-hidden">
         {/* Sidebar */}
-        <div className="w-96 bg-white shadow-lg z-10">
-          <Sidebar />
-        </div>
+        <ErrorBoundary fallback={
+          <div className="w-96 bg-gray-100 flex items-center justify-center">
+            <p className="text-gray-600">側邊欄載入失敗</p>
+          </div>
+        }>
+          <div className="w-96 bg-white shadow-lg z-10">
+            <Sidebar />
+          </div>
+        </ErrorBoundary>
         
         {/* Main Map Area */}
         <div className="flex-1 relative">
@@ -127,127 +171,137 @@ function App() {
           </div>
 
           {/* 地圖 */}
-          {useAzureMap ? (
-            <AzureMap 
-              safeRoute={riskData?.routes.safe || null}
-              fastRoute={riskData?.routes.fast || null}
-            />
-          ) : (
-            <MapView />
-          )}
+          <ErrorBoundary fallback={
+            <div className="h-full w-full bg-gray-100 flex items-center justify-center">
+              <div className="text-center">
+                <div className="text-4xl mb-4">🗺️</div>
+                <p className="text-gray-600">地圖載入失敗，請重新整理頁面</p>
+              </div>
+            </div>
+          }>
+            {useAzureMap ? (
+              <AzureMap />
+            ) : (
+              <MapView />
+            )}
+          </ErrorBoundary>
 
           {/* 功能按鈕組 */}
           <div className="absolute top-4 right-4 z-10 flex gap-2">
-            {/* 導航按鈕 */}
-            <button
-              onClick={() => setShowNavigation(!showNavigation)}
-              className="bg-white rounded-lg shadow-lg p-3 hover:shadow-xl transition-shadow"
-              title="導航功能"
-            >
-              <FiNavigation className="w-5 h-5 text-gray-700" />
-            </button>
-
-            {/* 警報按鈕 */}
-            <button
-              onClick={() => setShowAlerts(!showAlerts)}
-              className="bg-white rounded-lg shadow-lg p-3 hover:shadow-xl transition-shadow relative"
-              title="顯示警報"
-            >
-              <FiBell className="w-5 h-5 text-gray-700" />
-              {/* 如果有警報，顯示紅點 */}
-              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
-            </button>
-            
-            {/* 重新整理按鈕 */}
             <button
               onClick={handleRefresh}
               disabled={isRefetching}
-              className="bg-white rounded-lg shadow-lg p-3 hover:shadow-xl transition-shadow disabled:opacity-50 disabled:cursor-not-allowed"
-              title="重新整理資料"
+              className="bg-white rounded-lg shadow-lg p-3 hover:bg-gray-50 transition-colors disabled:opacity-50"
+              title="重新載入資料"
             >
-              <FiRefreshCw 
-                className={`w-5 h-5 text-gray-700 ${isRefetching ? 'animate-spin' : ''}`} 
-              />
+              <FiRefreshCw className={`w-5 h-5 text-gray-600 ${isRefetching ? 'animate-spin' : ''}`} />
             </button>
 
-            {/* 災害儀表板按鈕 */}
             <button
-              onClick={() => setShowDisasterDashboard(true)}
-              className="bg-white rounded-lg shadow-lg p-3 hover:shadow-xl transition-shadow"
-              title="災害資訊儀表板"
+              onClick={() => setShowAlerts(!showAlerts)}
+              className="bg-white rounded-lg shadow-lg p-3 hover:bg-gray-50 transition-colors"
+              title="最新警報"
             >
-              <FiGrid className="w-5 h-5 text-gray-700" />
+              <FiBell className="w-5 h-5 text-gray-600" />
             </button>
 
-            {/* 後台管理按鈕 */}
             <button
-              onClick={() => setShowAdmin(true)}
-              className="bg-white rounded-lg shadow-lg p-3 hover:shadow-xl transition-shadow"
-              title="開啟後台管理"
+              onClick={() => setShowNavigation(!showNavigation)}
+              className="bg-white rounded-lg shadow-lg p-3 hover:bg-gray-50 transition-colors"
+              title="導航面板"
             >
-              <FiSettings className="w-5 h-5 text-gray-700" />
+              <FiNavigation className="w-5 h-5 text-gray-600" />
+            </button>
+
+            <button
+              onClick={() => setShowDisasterSummary(!showDisasterSummary)}
+              className="bg-white rounded-lg shadow-lg p-3 hover:bg-gray-50 transition-colors"
+              title="近期災害資訊"
+            >
+              <FiList className="w-5 h-5 text-gray-600" />
+            </button>
+
+            <button
+              onClick={() => setShowAdmin(!showAdmin)}
+              className="bg-white rounded-lg shadow-lg p-3 hover:bg-gray-50 transition-colors"
+              title="管理面板"
+            >
+              <FiSettings className="w-5 h-5 text-gray-600" />
+            </button>
+
+            <button
+              onClick={() => setShowDisasterDashboard(!showDisasterDashboard)}
+              className="bg-white rounded-lg shadow-lg p-3 hover:bg-gray-50 transition-colors"
+              title="災害儀表板"
+            >
+              <FiGrid className="w-5 h-5 text-gray-600" />
             </button>
           </div>
-
-          {/* 警報面板 */}
-          {showAlerts && (
-            <div className="absolute top-20 right-4 z-20 w-96 max-h-[calc(100vh-120px)] overflow-y-auto">
-              <RecentAlerts />
-            </div>
-          )}
-
-          {/* 導航面板 */}
-          {showNavigation && (
-            <div className="absolute top-4 left-4 z-20 w-96 h-[calc(100vh-120px)]">
-              <NavigationPanel />
-            </div>
-          )}
-
-          {/* 載入遮罩 */}
-          {isLoading && <LoadingOverlay />}
-        </div>
-        
-        {/* 右側災害資訊面板 */}
-        <div className="w-96 bg-white shadow-lg z-10 overflow-hidden">
-          <DisasterSummary onViewDetails={() => setShowDisasterDashboard(true)} />
         </div>
       </div>
-      
-      {/* Modals */}
-      {reportMode.isActive && reportMode.location && (
-        <ReportModal
-          location={reportMode.location}
-          onClose={() => {
-            setShowReportModal(false);
-            setReportMode(false);
-          }}
-          onSubmit={() => {
-            setShowReportModal(false);
-            refreshData();
-          }}
-        />
-      )}
-      
-      {/* 後台管理介面 */}
-      {showAdmin && (
-        <AdminDashboard onClose={() => setShowAdmin(false)} />
-      )}
-      
-      {/* 災害資訊儀表板 */}
-      {showDisasterDashboard && (
-        <div className="fixed inset-0 bg-white z-50">
-          <div className="absolute top-4 right-4 z-10">
-            <button
-              onClick={() => setShowDisasterDashboard(false)}
-              className="bg-white rounded-lg shadow-lg p-3 hover:shadow-xl transition-shadow"
-              title="關閉"
-            >
-              ✕
-            </button>
+
+      {/* 彈出式面板 */}
+      {showAlerts && (
+        <ErrorBoundary>
+          <div className="fixed top-20 right-4 w-96 bg-white rounded-lg shadow-2xl z-30 max-h-96 overflow-y-auto">
+            <RecentAlerts onClose={() => setShowAlerts(false)} />
           </div>
-          <DisasterDashboard />
-        </div>
+        </ErrorBoundary>
       )}
+
+      {showNavigation && (
+        <ErrorBoundary>
+          <div className="fixed top-20 right-4 w-80 bg-white rounded-lg shadow-2xl z-30">
+            <NavigationPanel onClose={() => setShowNavigation(false)} />
+          </div>
+        </ErrorBoundary>
+      )}
+
+      {showDisasterSummary && (
+        <ErrorBoundary>
+          <div className="fixed inset-4 bg-white rounded-lg shadow-2xl z-40 overflow-hidden">
+            <DisasterSummary onClose={() => setShowDisasterSummary(false)} />
+          </div>
+        </ErrorBoundary>
+      )}
+
+      {showAdmin && (
+        <ErrorBoundary>
+          <div className="fixed inset-4 bg-white rounded-lg shadow-2xl z-40 overflow-hidden">
+            <AdminDashboard onClose={() => setShowAdmin(false)} />
+          </div>
+        </ErrorBoundary>
+      )}
+
+      {showDisasterDashboard && (
+        <ErrorBoundary>
+          <div className="fixed inset-4 bg-white rounded-lg shadow-2xl z-40 overflow-hidden">
+            <DisasterDashboard onClose={() => setShowDisasterDashboard(false)} />
+          </div>
+        </ErrorBoundary>
+      )}
+
+      {/* 上報對話框 */}
+      {showReportModal && reportMode.location && (
+        <ErrorBoundary>
+          <ReportModal
+            location={reportMode.location}
+            onClose={() => setShowReportModal(false)}
+            onSubmit={() => {
+              setShowReportModal(false);
+              toast.success('感謝您的回報！');
+            }}
+          />
+        </ErrorBoundary>
+      )}
+    </ErrorBoundary>
+  );
+}
+
+function App() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AppContent />
     </QueryClientProvider>
   );
 }
